@@ -1,0 +1,3 @@
+# Config will load config for all requests and will be used to load environment variables.
+Env: default
+# Other option support?
