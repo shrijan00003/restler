@@ -1,4 +1,4 @@
-module restler
+module github.com/shrijan00003/restler
 
 go 1.22.0
 
