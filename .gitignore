@@ -1,0 +1,3 @@
+# Ignore response file
+**/.*.response.txt
+**/.*.response.json

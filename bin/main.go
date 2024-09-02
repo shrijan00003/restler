@@ -10,10 +10,38 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"regexp"
+	"strings"
 
 	"github.com/urfave/cli/v2"
 	"gopkg.in/yaml.v3"
 )
+
+type Request struct {
+	Name    string            `yaml:"Name"`
+	URL     string            `yaml:"URL"`
+	Method  string            `yaml:"Method"`
+	Headers map[string]string `yaml:"Headers"`
+	Body    interface{}       `yaml:"Body"`
+}
+
+type Config struct {
+	Env string `yaml:"Env"`
+}
+
+// global Config variable
+var config Config
+
+func (c *Config) DefaultConfig() {
+	c.Env = "default"
+}
+
+func (c *Config) Terminate() {
+	c = nil
+}
+
+// global environment map
+var env map[string]string
 
 func main() {
 	// RESTLER_PATH path, where to run command to create api request
@@ -22,9 +50,22 @@ func main() {
 		rsClientPath = "./example/restlers" // TODO: Remove this after testing
 	}
 
+	// Load configs
+	err := loadWithYaml(fmt.Sprintf("%s/config.yaml", rsClientPath), &config)
+	if err != nil {
+		fmt.Println("[Error]:Failed to load config file, taking all defaults, err:", err)
+		config.DefaultConfig()
+	}
+
+	// Load Environment
+	err = loadWithYaml(fmt.Sprintf("%s/env/%s.yaml", rsClientPath, config.Env), &env)
+	if err != nil {
+		fmt.Println("[Error]: Failed to load environment file! We can't help with your environment variable in rquest!")
+	}
+
 	app := &cli.App{
-		Name:  "RSClient Application",
-		Usage: "RestClient for developers",
+		Name:  "Restler Application",
+		Usage: "Developer friendly rest client for developers only!!",
 		Action: func(cCtx *cli.Context) error {
 			// consumer will send the request name in the args
 			// TODO: if not we will run all requests on dir
@@ -39,11 +80,11 @@ func main() {
 			}
 
 			var requestPath = fmt.Sprintf("%s/%s.request.yaml", requestDirPath, requestDir)
-			fmt.Println("Processing Request: ",requestPath)
+			fmt.Println("Processing Request: ", requestPath)
 			if _, err := os.Stat(requestPath); os.IsNotExist(err) {
 				log.Fatal("Request file not found, please check the path")
 			}
-			res, err := parseRequest(requestPath);
+			res, err := parseRequest(requestPath)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -52,11 +93,11 @@ func main() {
 				log.Fatal(err)
 			}
 
-			responseBytes, err := prepareResponse(res, body);
+			responseBytes, err := prepareResponse(res, body)
 			if err != nil {
 				log.Fatal(err)
 			}
-		
+
 			// TODO: support different output formats
 			// If user chooses json format, we should convert the response body to json and write in different file than header.
 			outputFilePath := fmt.Sprintf("%s/.%s.response.txt", requestDirPath, requestDir)
@@ -71,7 +112,7 @@ func main() {
 
 }
 
-func prepareResponse(res *http.Response, body []byte)([]byte, error){
+func prepareResponse(res *http.Response, body []byte) ([]byte, error) {
 	var buffer bytes.Buffer
 	buffer.WriteString("-------Header--------\n")
 
@@ -86,38 +127,70 @@ func prepareResponse(res *http.Response, body []byte)([]byte, error){
 	return buffer.Bytes(), nil
 }
 
+func readBody(res *http.Response) ([]byte, error) {
+	var reader io.ReadCloser
+	var err error
 
-func readBody(res * http.Response)([]byte, error){
-  var reader io.ReadCloser;
-  var err error;
-
-  switch res.Header.Get("Content-Encoding") {
-  case "gzip":{
-	reader, err = gzip.NewReader(res.Body)
-	if err!= nil {
-		return nil, fmt.Errorf("error creating gzip reader : %v", err)
+	switch res.Header.Get("Content-Encoding") {
+	case "gzip":
+		{
+			reader, err = gzip.NewReader(res.Body)
+			if err != nil {
+				return nil, fmt.Errorf("error creating gzip reader : %v", err)
+			}
 		}
-  	}
-	default:{
-		reader = res.Body
+	default:
+		{
+			reader = res.Body
+		}
 	}
-  }
 
-  body, err := io.ReadAll(reader)
-  if err != nil {
-	return nil, fmt.Errorf("error reading response body : %v", err)
-  }
+	body, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, fmt.Errorf("error reading response body : %v", err)
+	}
 
-  return body, nil
+	return body, nil
 }
 
-type Request struct {
-	Name    string            `yaml:"Name"`
-	URL     string            `yaml:"URL"`
-	Method  string            `yaml:"Method"`
-	Env     string            `yaml:"Env"`
-	Headers map[string]string `yaml:"Headers"`
-	Body    interface{}       `yaml:"Body"`
+func loadEnvInRequest(input string) string {
+	re := regexp.MustCompile(`\{\s*\{\s*(\w+)\s*\}\s*\}`)
+	return re.ReplaceAllStringFunc(input, func(match string) string {
+		key := strings.Trim(match, "{} \t")
+		if value, exists := env[key]; exists {
+			return value
+		}
+		return match // Return the original if not found in env
+	})
+}
+
+func loadWithYaml(configPath string, reciever interface{}) error {
+	contentBytes, err := readFile(configPath)
+	if err != nil {
+		return fmt.Errorf("Error reading file at %s", configPath)
+	}
+
+	err = yaml.Unmarshal(contentBytes, reciever)
+	if err != nil {
+		return fmt.Errorf("Error occurred on parsing Yamal file : %s", configPath)
+	}
+
+	return nil
+}
+
+func readFile(path string) ([]byte, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		fmt.Println("Error opening file", err)
+		return nil, err
+	}
+	defer file.Close()
+	rawContent, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("Error reading file at path %s", path)
+	}
+
+	return rawContent, nil
 }
 
 func parseRequest(requestPath string) (*http.Response, error) {
@@ -132,9 +205,10 @@ func parseRequest(requestPath string) (*http.Response, error) {
 		fmt.Println("Error reading file", err)
 		return nil, err
 	}
+	rawRequestWithEnv := loadEnvInRequest(string(rawRequestContent))
 
 	var request Request
-	err = yaml.Unmarshal(rawRequestContent, &request)
+	err = yaml.Unmarshal([]byte(rawRequestWithEnv), &request)
 	if err != nil {
 		fmt.Println("Error parsing request file, please check the format", err)
 		return nil, err
@@ -164,10 +238,6 @@ func validateRequest(r *Request) error {
 	if r.Method == "" {
 		return errors.New("Request Method is required")
 	}
-	// TODO: Add default env rather than making it required
-	if r.Env == "" {
-		return errors.New("Request Env is required")
-	}
 	if r.Headers == nil {
 		return errors.New("Request Headers is required")
 	}
@@ -185,7 +255,7 @@ func processRequest(req *Request) (*http.Response, error) {
 	var _bytes []byte
 	var err error
 	if req.Body != nil {
-		_bytes, err = json.Marshal(req.Body) 
+		_bytes, err = json.Marshal(req.Body)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing request body %s", err)
 		}
@@ -202,8 +272,7 @@ func processRequest(req *Request) (*http.Response, error) {
 
 	httpResp, err := client.Do(httpReq)
 	if err != nil {
-		return nil,fmt.Errorf("error making http request %s", err)
+		return nil, fmt.Errorf("error making http request %s", err)
 	}
 	return httpResp, nil
 }
-

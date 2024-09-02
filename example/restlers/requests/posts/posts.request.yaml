@@ -1,7 +1,6 @@
 Name: Create Post
-URL: https://jsonplaceholder.typicode.com/posts
+URL: "{{API_URL}}"
 Method: POST
-Env: default
 
 Headers:
   Accept: text/html, application/json
