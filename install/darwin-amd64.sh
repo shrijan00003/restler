@@ -3,7 +3,7 @@
 # Install for MacOS x86_64 architecture
 # Variables
 REPO="shrijan00003/restler"
-VERSION="v0.0.1-dev.1"
+VERSION="v0.0.1-dev.2"
 BINARY_NAME="restler"
 TAR_FILE="${BINARY_NAME}-${VERSION}-darwin-amd64.tar.gz"
 DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${TAR_FILE}"
