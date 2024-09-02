@@ -60,7 +60,7 @@ func main() {
 	// Load Environment
 	err = loadWithYaml(fmt.Sprintf("%s/env/%s.yaml", rsClientPath, config.Env), &env)
 	if err != nil {
-		fmt.Println("[Error]: Failed to load environment file! We can't help with your environment variable in rquest!")
+		fmt.Println("[Error]: Failed to load environment file! We can't help with your environment variable in request!")
 	}
 
 	app := &cli.App{
@@ -164,15 +164,15 @@ func loadEnvInRequest(input string) string {
 	})
 }
 
-func loadWithYaml(configPath string, reciever interface{}) error {
+func loadWithYaml(configPath string, receiver interface{}) error {
 	contentBytes, err := readFile(configPath)
 	if err != nil {
-		return fmt.Errorf("Error reading file at %s", configPath)
+		return fmt.Errorf("error reading file at %s", configPath)
 	}
 
-	err = yaml.Unmarshal(contentBytes, reciever)
+	err = yaml.Unmarshal(contentBytes, receiver)
 	if err != nil {
-		return fmt.Errorf("Error occurred on parsing Yamal file : %s", configPath)
+		return fmt.Errorf("error occurred on parsing Yaml file : %s", configPath)
 	}
 
 	return nil
