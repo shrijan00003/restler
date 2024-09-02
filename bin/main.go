@@ -47,20 +47,21 @@ func main() {
 	// RESTLER_PATH path, where to run command to create api request
 	var rsClientPath = os.Getenv("RESTLER_PATH")
 	if rsClientPath == "" {
-		rsClientPath = "./example/restlers" // TODO: Remove this after testing
+		fmt.Println("[Restler Log]:RESTLER_PATH is not set, defaulting to restler")
+		rsClientPath = "restler" 
 	}
 
 	// Load configs
 	err := loadWithYaml(fmt.Sprintf("%s/config.yaml", rsClientPath), &config)
 	if err != nil {
-		fmt.Println("[Error]:Failed to load config file, taking all defaults, err:", err)
+		fmt.Println("[Restler Log]:Failed to load config file, taking all defaults, err:", err)
 		config.DefaultConfig()
 	}
 
 	// Load Environment
 	err = loadWithYaml(fmt.Sprintf("%s/env/%s.yaml", rsClientPath, config.Env), &env)
 	if err != nil {
-		fmt.Println("[Error]: Failed to load environment file! We can't help with your environment variable in request!")
+		fmt.Printf("[Restler Error]: Failed to load environment file! Make sure you have at least default.yaml file in %s/env folder to use environment variables in request!\n", rsClientPath)
 	}
 
 	app := &cli.App{
@@ -70,32 +71,34 @@ func main() {
 			// consumer will send the request name in the args
 			// TODO: if not we will run all requests on dir
 			var requestDir = cCtx.Args().Get(0)
-			if requestDir == "" {
-				requestDir = "some"
+			if requestDir == ""{
+				log.Fatal("[Restler Log]: No request provided!")
 			}
+
 			// request path will have .request.yaml if not we will say that request file not found
 			var requestDirPath = fmt.Sprintf("%s/requests/%s", rsClientPath, requestDir)
 			if _, err := os.Stat(requestDirPath); os.IsNotExist(err) {
-				log.Fatal("Request directory not found, please check the path")
+				log.Fatal("[Restler Error]: Request directory not found, please check the path. Request Directory Path: ", requestDirPath)
 			}
 
 			var requestPath = fmt.Sprintf("%s/%s.request.yaml", requestDirPath, requestDir)
-			fmt.Println("Processing Request: ", requestPath)
+			fmt.Println("[Restler Log]: Processing Request: ", requestPath)
+
 			if _, err := os.Stat(requestPath); os.IsNotExist(err) {
-				log.Fatal("Request file not found, please check the path")
+				log.Fatal("[Restler Error]: Request file not found, please check the path. Request File Path: ", requestPath)
 			}
 			res, err := parseRequest(requestPath)
 			if err != nil {
-				log.Fatal(err)
+				log.Fatal("[Restler error]: ",err)
 			}
 			body, err := readBody(res)
 			if err != nil {
-				log.Fatal(err)
+				log.Fatal("[Restler error]: ",err)
 			}
 
 			responseBytes, err := prepareResponse(res, body)
 			if err != nil {
-				log.Fatal(err)
+				log.Fatal("[Restler error]: ",err)
 			}
 
 			// TODO: support different output formats
@@ -187,7 +190,7 @@ func readFile(path string) ([]byte, error) {
 	defer file.Close()
 	rawContent, err := io.ReadAll(file)
 	if err != nil {
-		return nil, fmt.Errorf("Error reading file at path %s", path)
+		return nil, fmt.Errorf("error reading file at path %s", path)
 	}
 
 	return rawContent, nil
