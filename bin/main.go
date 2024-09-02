@@ -72,7 +72,7 @@ func main() {
 			// TODO: if not we will run all requests on dir
 			var requestDir = cCtx.Args().Get(0)
 			if requestDir == ""{
-				log.Fatal("[Restler Log]: No request provided!")
+				log.Fatal("[Restler Error]: No request provided! Please provide request name as argument. Request name is the name of the folder in requests folder.")
 			}
 
 			// request path will have .request.yaml if not we will say that request file not found
