@@ -16,4 +16,3 @@ jobs:
           goarch: amd64
           project_path: "./bin"
           binary_name: "restler"
-          extra_files: README.md
