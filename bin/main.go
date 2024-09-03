@@ -168,16 +168,20 @@ func restAction(cCtx *cli.Context, actionName ActionName, restlerPath string ) e
 
 func prepareResponse(res *http.Response, body []byte) ([]byte, error) {
 	var buffer bytes.Buffer
+	buffer.WriteString("-------Status--------\n")
+	buffer.WriteString(fmt.Sprintf("Status Code: %d, Status: %s\n", res.StatusCode, res.Status))
+	buffer.WriteString("\n\n")
 	buffer.WriteString("-------Header--------\n")
 
 	for key, value := range res.Header {
 		buffer.WriteString(fmt.Sprintf("%s: %s\n", key, value))
 	}
-	buffer.WriteString("\n")
-
+	buffer.WriteString("\n\n")
 	buffer.WriteString("-------Body--------\n")
 	buffer.Write(body)
-
+	buffer.WriteString("\n\n")
+	buffer.WriteString("-------Request--------\n")
+	buffer.WriteString(fmt.Sprintf("Method: %s, URL: %s\n", res.Request.Method, res.Request.URL))
 	return buffer.Bytes(), nil
 }
 
