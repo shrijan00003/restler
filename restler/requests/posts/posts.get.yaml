@@ -1,0 +1,13 @@
+Name: Get Posts
+URL: "{{API_URL}}"
+Method: GET
+
+Headers:
+  Accept: text/html, application/json
+  Accept-Encoding: utf-8
+  R-Proxy-Url: https://something.com:8080
+  R-Proxy-Enable: N # N or Y, Y is default, if HTTPS_PROXY, HTTP_PROXY or R-Proxy-Url is set
+  User-Agent: rs-client-0.0.1
+  Content-Type: application/json
+
+Body:

@@ -1,0 +1,36 @@
+Name: Update Post
+URL: "{{API_URL}}/1"
+Method: PUT
+
+Headers:
+  Accept: text/html, application/json
+  Accept-Encoding: utf-8
+  X-Proxy-Agent: https://something.com:8080
+  User-Agent: rs-client-0.0.1
+  Content-Type: application/json
+
+Body:
+  name: John
+  age: 30
+  address:
+    street: 123 Main St
+    city: Anytown
+  hobbies:
+    - reading
+    - gaming
+  contact:
+    email: john.doe@example.com
+    phone:
+      home: "123-456-7890"
+      work: "098-765-4321"
+  employment:
+    company: Example Corp
+    position: Software Engineer
+    details:
+      start_date: "2020-01-15"
+      end_date: null
+      projects:
+        - name: Project Alpha
+          role: Lead Developer
+        - name: Project Beta
+          role: Contributor
