@@ -34,6 +34,27 @@ curl -s https://raw.githubusercontent.com/shrijan00003/restler/main/install/linu
 8. Check the output files in `requests/<request-name>` folder. For example `requests/posts/.post.res.txt` for post response and `requests/posts/.get.res.txt` for get request response.
 9. for other supports please check the [TODO](./todos/Todo.md) file.
 
+## Proxy Usage
+
+Restler respects the `HTTPS_PROXY` and `HTTP_PROXY` environment variables. You can specify a proxy URL for individual requests using the `R-Proxy-Url` header. To disable the proxy for specific requests, use the `R-Proxy-Enable: N` header.
+
+for eg:
+```yaml
+Name: Get Posts
+URL: "{{API_URL}}"
+Method: GET
+
+Headers:
+  Accept: text/html, application/json
+  Accept-Encoding: utf-8
+  R-Proxy-Url: https://something.com:8080
+  R-Proxy-Enable: N # N or Y, Y is default, if HTTPS_PROXY, HTTP_PROXY or R-Proxy-Url is set
+  User-Agent: rs-client-0.0.1
+  Content-Type: application/json
+
+Body:
+```
+
 ## Inspiration
 
 ## Build
