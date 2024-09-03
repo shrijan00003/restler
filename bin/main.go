@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -43,12 +44,24 @@ func (c *Config) Terminate() {
 // global environment map
 var env map[string]string
 
+// global proxy url
+var gProxyUrl string
+
 func main() {
 	// RESTLER_PATH path, where to run command to create api request
 	var restlerPath = os.Getenv("RESTLER_PATH")
 	if restlerPath == "" {
 		fmt.Println("[Restler Log]:RESTLER_PATH is not set, defaulting to restler")
-		restlerPath = "restler" 
+		restlerPath = "restler"
+	}
+
+	// Load proxy from env supports both HTTPS_PROXY and HTTP_PROXY
+	gProxyUrl = os.Getenv("HTTPS_PROXY")
+	if gProxyUrl == "" {
+		gProxyUrl = os.Getenv("HTTP_PROXY")
+		if gProxyUrl == "" {
+			gProxyUrl = ""
+		}
 	}
 
 	// Load configs
@@ -69,41 +82,41 @@ func main() {
 		Usage: "Developer friendly rest client for developers only!!",
 		Commands: []*cli.Command{
 			{
-				Name: "post",
+				Name:    "post",
 				Aliases: []string{"p"},
-				Usage: "Run post request",
+				Usage:   "Run post request",
 				Action: func(cCtx *cli.Context) error {
 					return restAction(cCtx, POST, restlerPath)
 				},
 			},
 			{
-				Name: "get",
+				Name:    "get",
 				Aliases: []string{"g"},
-				Usage: "Run get request",
+				Usage:   "Run get request",
 				Action: func(cCtx *cli.Context) error {
 					return restAction(cCtx, GET, restlerPath)
 				},
 			},
 			{
-				Name: "put",
+				Name:    "put",
 				Aliases: []string{"u"},
-				Usage: "Run put request",
+				Usage:   "Run put request",
 				Action: func(cCtx *cli.Context) error {
 					return restAction(cCtx, PUT, restlerPath)
 				},
 			},
 			{
-				Name: "delete",
+				Name:    "delete",
 				Aliases: []string{"d"},
-				Usage: "Run delete request",
+				Usage:   "Run delete request",
 				Action: func(cCtx *cli.Context) error {
 					return restAction(cCtx, DELETE, restlerPath)
 				},
 			},
 			{
-				Name: "patch",
+				Name:    "patch",
 				Aliases: []string{"m"},
-				Usage: "Run patch request",
+				Usage:   "Run patch request",
 				Action: func(cCtx *cli.Context) error {
 					return restAction(cCtx, PATCH, restlerPath)
 				},
@@ -117,20 +130,21 @@ func main() {
 
 }
 
-type ActionName string;
+type ActionName string
+
 const (
-	POST ActionName = "post"
-	GET ActionName = "get"
-	PUT ActionName = "put"
-	DELETE ActionName = "delete"
-	PATCH ActionName = "patch"
+	POST    ActionName = "post"
+	GET     ActionName = "get"
+	PUT     ActionName = "put"
+	DELETE  ActionName = "delete"
+	PATCH   ActionName = "patch"
 	OPTIONS ActionName = "options"
-	HEAD ActionName = "head"
+	HEAD    ActionName = "head"
 )
 
-func restAction(cCtx *cli.Context, actionName ActionName, restlerPath string ) error{
+func restAction(cCtx *cli.Context, actionName ActionName, restlerPath string) error {
 	var req = cCtx.Args().Get(0)
-	if req == ""{
+	if req == "" {
 		log.Fatal("[Restler Error]: No request provided! Please provide request name as argument. Request name is the name of the folder in requests folder.")
 	}
 
@@ -148,17 +162,17 @@ func restAction(cCtx *cli.Context, actionName ActionName, restlerPath string ) e
 	res, err := parseRequest(reqFullPath)
 
 	if err != nil {
-		log.Fatal("[Restler error]: ",err)
+		log.Fatal("[Restler error]: ", err)
 	}
 	body, err := readBody(res)
 
 	if err != nil {
-		log.Fatal("[Restler error]: ",err)
+		log.Fatal("[Restler error]: ", err)
 	}
 
 	responseBytes, err := prepareResponse(res, body)
 	if err != nil {
-		log.Fatal("[Restler error]: ",err)
+		log.Fatal("[Restler error]: ", err)
 	}
 
 	outputFilePath := fmt.Sprintf("%s/.%s.res.txt", reqPath, actionName)
@@ -309,7 +323,44 @@ func validateRequest(r *Request) error {
 }
 
 func processRequest(req *Request) (*http.Response, error) {
-	client := &http.Client{}
+	var proxyURL *url.URL = nil
+	var transport *http.Transport = nil
+	var client *http.Client = nil
+
+	sProxyEnable := req.Headers["R-Proxy-Enable"]
+	if sProxyEnable == "" {
+		sProxyEnable = "Y"
+	}
+
+	if sProxyEnable == "N" {
+		client = &http.Client{}
+	} else {
+		sProxyUrl := req.Headers["R-Proxy-Url"]
+
+		if sProxyUrl == "" {
+			sProxyUrl = gProxyUrl
+		}
+
+		if sProxyUrl != "" {
+			var err error
+			proxyURL, err = url.Parse(sProxyUrl)
+			if err != nil {
+				return nil, fmt.Errorf("error parsing proxy url, error: %s", err)
+			}
+		}
+
+		if proxyURL != nil {
+			transport = &http.Transport{
+				Proxy: http.ProxyURL(proxyURL),
+			}
+			client = &http.Client{
+				Transport: transport,
+			}
+		} else {
+			client = &http.Client{}
+		}
+	}
+
 	var _bytes []byte
 	var err error
 	if req.Body != nil {
