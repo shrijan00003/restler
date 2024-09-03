@@ -1,3 +1,4 @@
 # Ignore response file
 **/.*.response.txt
+**/.*.res.txt
 **/.*.response.json

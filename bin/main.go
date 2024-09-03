@@ -45,67 +45,69 @@ var env map[string]string
 
 func main() {
 	// RESTLER_PATH path, where to run command to create api request
-	var rsClientPath = os.Getenv("RESTLER_PATH")
-	if rsClientPath == "" {
+	var restlerPath = os.Getenv("RESTLER_PATH")
+	if restlerPath == "" {
 		fmt.Println("[Restler Log]:RESTLER_PATH is not set, defaulting to restler")
-		rsClientPath = "restler" 
+		restlerPath = "restler" 
 	}
 
 	// Load configs
-	err := loadWithYaml(fmt.Sprintf("%s/config.yaml", rsClientPath), &config)
+	err := loadWithYaml(fmt.Sprintf("%s/config.yaml", restlerPath), &config)
 	if err != nil {
 		fmt.Println("[Restler Log]:Failed to load config file, taking all defaults, err:", err)
 		config.DefaultConfig()
 	}
 
 	// Load Environment
-	err = loadWithYaml(fmt.Sprintf("%s/env/%s.yaml", rsClientPath, config.Env), &env)
+	err = loadWithYaml(fmt.Sprintf("%s/env/%s.yaml", restlerPath, config.Env), &env)
 	if err != nil {
-		fmt.Printf("[Restler Error]: Failed to load environment file! Make sure you have at least default.yaml file in %s/env folder to use environment variables in request!\n", rsClientPath)
+		fmt.Printf("[Restler Error]: Failed to load environment file! Make sure you have at least default.yaml file in %s/env folder to use environment variables in request!\n", restlerPath)
 	}
 
 	app := &cli.App{
 		Name:  "Restler Application",
 		Usage: "Developer friendly rest client for developers only!!",
-		Action: func(cCtx *cli.Context) error {
-			// consumer will send the request name in the args
-			// TODO: if not we will run all requests on dir
-			var requestDir = cCtx.Args().Get(0)
-			if requestDir == ""{
-				log.Fatal("[Restler Error]: No request provided! Please provide request name as argument. Request name is the name of the folder in requests folder.")
-			}
-
-			// request path will have .request.yaml if not we will say that request file not found
-			var requestDirPath = fmt.Sprintf("%s/requests/%s", rsClientPath, requestDir)
-			if _, err := os.Stat(requestDirPath); os.IsNotExist(err) {
-				log.Fatal("[Restler Error]: Request directory not found, please check the path. Request Directory Path: ", requestDirPath)
-			}
-
-			var requestPath = fmt.Sprintf("%s/%s.request.yaml", requestDirPath, requestDir)
-			fmt.Println("[Restler Log]: Processing Request: ", requestPath)
-
-			if _, err := os.Stat(requestPath); os.IsNotExist(err) {
-				log.Fatal("[Restler Error]: Request file not found, please check the path. Request File Path: ", requestPath)
-			}
-			res, err := parseRequest(requestPath)
-			if err != nil {
-				log.Fatal("[Restler error]: ",err)
-			}
-			body, err := readBody(res)
-			if err != nil {
-				log.Fatal("[Restler error]: ",err)
-			}
-
-			responseBytes, err := prepareResponse(res, body)
-			if err != nil {
-				log.Fatal("[Restler error]: ",err)
-			}
-
-			// TODO: support different output formats
-			// If user chooses json format, we should convert the response body to json and write in different file than header.
-			outputFilePath := fmt.Sprintf("%s/.%s.response.txt", requestDirPath, requestDir)
-			os.WriteFile(outputFilePath, responseBytes, 0644)
-			return nil
+		Commands: []*cli.Command{
+			{
+				Name: "post",
+				Aliases: []string{"p"},
+				Usage: "Run post request",
+				Action: func(cCtx *cli.Context) error {
+					return restAction(cCtx, POST, restlerPath)
+				},
+			},
+			{
+				Name: "get",
+				Aliases: []string{"g"},
+				Usage: "Run get request",
+				Action: func(cCtx *cli.Context) error {
+					return restAction(cCtx, GET, restlerPath)
+				},
+			},
+			{
+				Name: "put",
+				Aliases: []string{"u"},
+				Usage: "Run put request",
+				Action: func(cCtx *cli.Context) error {
+					return restAction(cCtx, PUT, restlerPath)
+				},
+			},
+			{
+				Name: "delete",
+				Aliases: []string{"d"},
+				Usage: "Run delete request",
+				Action: func(cCtx *cli.Context) error {
+					return restAction(cCtx, DELETE, restlerPath)
+				},
+			},
+			{
+				Name: "patch",
+				Aliases: []string{"m"},
+				Usage: "Run patch request",
+				Action: func(cCtx *cli.Context) error {
+					return restAction(cCtx, PATCH, restlerPath)
+				},
+			},
 		},
 	}
 
@@ -113,6 +115,55 @@ func main() {
 		log.Fatal(err)
 	}
 
+}
+
+type ActionName string;
+const (
+	POST ActionName = "post"
+	GET ActionName = "get"
+	PUT ActionName = "put"
+	DELETE ActionName = "delete"
+	PATCH ActionName = "patch"
+	OPTIONS ActionName = "options"
+	HEAD ActionName = "head"
+)
+
+func restAction(cCtx *cli.Context, actionName ActionName, restlerPath string ) error{
+	var req = cCtx.Args().Get(0)
+	if req == ""{
+		log.Fatal("[Restler Error]: No request provided! Please provide request name as argument. Request name is the name of the folder in requests folder.")
+	}
+
+	var reqPath = fmt.Sprintf("%s/requests/%s", restlerPath, req)
+	if _, err := os.Stat(reqPath); os.IsNotExist(err) {
+		log.Fatal("[Restler Error]: Request directory not found, please check the path. Request Directory Path: ", reqPath)
+	}
+
+	var reqFullPath = fmt.Sprintf("%s/%s.%s.yaml", reqPath, req, actionName)
+	fmt.Println("[Restler Log]: Processing Request: ", reqFullPath)
+
+	if _, err := os.Stat(reqFullPath); os.IsNotExist(err) {
+		log.Fatal("[Restler Error]: Request file not found, please check the path. Request File Path: ", reqFullPath)
+	}
+	res, err := parseRequest(reqFullPath)
+
+	if err != nil {
+		log.Fatal("[Restler error]: ",err)
+	}
+	body, err := readBody(res)
+
+	if err != nil {
+		log.Fatal("[Restler error]: ",err)
+	}
+
+	responseBytes, err := prepareResponse(res, body)
+	if err != nil {
+		log.Fatal("[Restler error]: ",err)
+	}
+
+	outputFilePath := fmt.Sprintf("%s/.%s.res.txt", reqPath, actionName)
+	os.WriteFile(outputFilePath, responseBytes, 0644)
+	return nil
 }
 
 func prepareResponse(res *http.Response, body []byte) ([]byte, error) {
