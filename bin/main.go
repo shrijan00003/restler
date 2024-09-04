@@ -83,8 +83,12 @@ func main() {
 		&cli.StringFlag{
 			Name:    "request",
 			Aliases: []string{"r"},
-			Usage:   "request to execute",
-			Value:   "",
+			Usage:   "Select request to execute",
+		},
+		&cli.StringFlag{
+			Name:    "env",
+			Aliases: []string{"e"},
+			Usage:   "Select env for request",
 		},
 	}
 
@@ -160,10 +164,18 @@ const (
 )
 
 func restAction(cCtx *cli.Context, actionName ActionName, restlerPath string) error {
-
 	var req = cCtx.Args().Get(0)
 	if req == "" {
 		log.Fatal("[Restler Error]: No request provided! Please provide request name as argument. Request name is the name of the folder in requests folder.")
+	}
+
+	// update env if env flag is set
+	envFlag := cCtx.String("env")
+	if envFlag != "" {
+		err := loadWithYaml(fmt.Sprintf("%s/env/%s.yaml", restlerPath, envFlag), &env)
+		if err != nil {
+			return fmt.Errorf("[Restler Error]: Environment you have selected is not found in %s/env folder \n", restlerPath)
+		}
 	}
 
 	var reqPath = fmt.Sprintf("%s/requests/%s", restlerPath, req)
