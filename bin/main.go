@@ -185,42 +185,49 @@ func restAction(cCtx *cli.Context, actionName ActionName, restlerPath string) er
 	if _, err := os.Stat(reqFullPath); os.IsNotExist(err) {
 		log.Fatal("[Restler Error]: Request file not found, please check the path. Request File Path: ", reqFullPath)
 	}
-	res, err := parseRequest(reqFullPath)
 
+	pReq, err := parseRequest(reqFullPath)
+	if err != nil {
+		log.Fatal("[Restler error] Error parsing request: ", err)
+	}
+
+	pRes, err := processRequest(pReq)
+	if err != nil {
+		log.Fatal("[Restler error] Error processing request: ", err)
+	}
+
+	body, err := readBody(pRes)
 	if err != nil {
 		log.Fatal("[Restler error]: ", err)
 	}
-	body, err := readBody(res)
 
+	responseBytes, err := prepareResponse(pReq, pRes, body)
 	if err != nil {
 		log.Fatal("[Restler error]: ", err)
 	}
 
-	responseBytes, err := prepareResponse(res, body)
-	if err != nil {
-		log.Fatal("[Restler error]: ", err)
-	}
-
-	outputFilePath := fmt.Sprintf("%s/.%s.%s.res.txt", reqPath, reqName, actionName)
+	outputFilePath := fmt.Sprintf("%s/.%s.%s.res.md", reqPath, reqName, actionName)
 	os.WriteFile(outputFilePath, responseBytes, 0644)
 	return nil
 }
 
-func prepareResponse(res *http.Response, body []byte) ([]byte, error) {
+func prepareResponse(req *Request, res *http.Response, body []byte) ([]byte, error) {
 	var buffer bytes.Buffer
-	buffer.WriteString("-------Status--------\n")
+	buffer.WriteString(fmt.Sprintf("# Response For: %s \n", req.Name))
 	buffer.WriteString(fmt.Sprintf("Status Code: %d, Status: %s\n", res.StatusCode, res.Status))
 	buffer.WriteString("\n\n")
-	buffer.WriteString("-------Header--------\n")
+	buffer.WriteString("## Response Header: \n")
 
 	for key, value := range res.Header {
 		buffer.WriteString(fmt.Sprintf("%s: %s\n", key, value))
 	}
 	buffer.WriteString("\n\n")
-	buffer.WriteString("-------Body--------\n")
+	buffer.WriteString("## Response Body: \n")
+	buffer.WriteString("```json\n")
 	buffer.Write(body)
+	buffer.WriteString("\n```")
 	buffer.WriteString("\n\n")
-	buffer.WriteString("-------Request--------\n")
+	buffer.WriteString("## Original Request \n")
 	buffer.WriteString(fmt.Sprintf("Method: %s, URL: %s\n", res.Request.Method, res.Request.URL))
 	return buffer.Bytes(), nil
 }
@@ -291,7 +298,7 @@ func readFile(path string) ([]byte, error) {
 	return rawContent, nil
 }
 
-func parseRequest(requestPath string) (*http.Response, error) {
+func parseRequest(requestPath string) (*Request, error) {
 	file, err := os.Open(requestPath)
 	if err != nil {
 		fmt.Println("Error opening file", err)
@@ -317,13 +324,7 @@ func parseRequest(requestPath string) (*http.Response, error) {
 		return nil, err
 	}
 
-	res, err := processRequest(&request)
-	if err != nil {
-		fmt.Println("Error processing request: ", err)
-		return nil, err
-	}
-
-	return res, nil
+	return &request, nil
 }
 
 func validateRequest(r *Request) error {
