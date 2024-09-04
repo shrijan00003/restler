@@ -31,15 +31,48 @@ curl -s https://raw.githubusercontent.com/shrijan00003/restler/main/install/linu
 5. (Optional) Create `config.yaml` file inside the API collection folder for configurations like environment.
 6. (Optional) Change folder for API collection in runtime by setting `RESTLER_PATH` environment variable. For example `export RESTLER_PATH=app-prefix-collection`
 7. Run `restler <http-method> <request-name>` to run the request. For example `restler psot posts` to run post request and `restler get posts` to run get request.
-8. Check the output files in `requests/<request-name>` folder. For example `requests/posts/.post.res.txt` for post response and `requests/posts/.get.res.txt` for get request response.
+8. Check the output files in `requests/<request-name>` folder. For example `requests/posts/.<request-name>.post.res.md` for post response and `requests/posts/.get.res.txt` for get request response.
 9. for other supports please check the [TODO](./todos/Todo.md) file.
 
 ## Commands Available
-- `restler post <request-name>`
-- `restler get <request-name>`
-- `restler patch <request-name>`
-- `restler put <request-name>`
-- `restler delete <request-name>`
+- `restler post <request-name>` or `restler p <request-name>`
+- `restler get <request-name>` or `restler g <request-name>`
+- `restler patch <request-name>` or `restler m <request-name>`
+- `restler put <request-name>` or `restler u <request-name>`
+- `restler delete <request-name>` or `restler d <request-name>`
+- `restler --help` or `restler -h` or or `restler -h`
+- `restler --version` or `restler -v`
+
+## Flag support
+Now all our REST method commands supports following flags:
+
+### --env or -e
+`env` flag is compatible for selecting environment from the command line. If we don't pass this option in command `Env` from config.yaml is default.
+
+### Usage
+```bash
+restler <http-command> --env <env-value> <request name>
+```
+Fog eg,
+```bash
+restler p -e dev posts
+```
+
+### --request or -r
+`request` flag is useful for seleting individual request from the request collection if you have multiple requests of same http method. Consider following structure:
+```bash
+reslter
+    requests
+        posts
+            - posts.post.yaml
+            - posts-v2.post.yaml
+
+
+```
+For running posts-v2, we can use ` -r ` like following:
+```bash
+restler p -r posts-v2 posts
+```
 
 ## Proxy Usage
 
