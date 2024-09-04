@@ -47,11 +47,6 @@ var env map[string]string
 // global proxy url
 var gProxyUrl string
 
-// Flag structure
-type Flags struct {
-	Request string
-}
-
 func main() {
 	// RESTLER_PATH path, where to run command to create api request
 	var restlerPath = os.Getenv("RESTLER_PATH")
