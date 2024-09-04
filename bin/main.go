@@ -47,6 +47,8 @@ var env map[string]string
 // global proxy url
 var gProxyUrl string
 
+const APP_VERSION = "v0.0.1-dev.4"
+
 func main() {
 	// RESTLER_PATH path, where to run command to create api request
 	var restlerPath = os.Getenv("RESTLER_PATH")
@@ -89,7 +91,7 @@ func main() {
 	app := &cli.App{
 		Name:    "Restler Application",
 		Usage:   "Developer friendly rest client for developers only!!",
-		Version: "v0.0.1-dev.5",
+		Version: APP_VERSION,
 		Commands: []*cli.Command{
 			{
 				Name:    "post",
