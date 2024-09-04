@@ -47,7 +47,7 @@ var env map[string]string
 // global proxy url
 var gProxyUrl string
 
-const APP_VERSION = "v0.0.1-dev.4"
+const APP_VERSION = "v0.0.1-dev.5"
 
 func main() {
 	// RESTLER_PATH path, where to run command to create api request
