@@ -47,6 +47,11 @@ var env map[string]string
 // global proxy url
 var gProxyUrl string
 
+// Flag structure
+type Flags struct {
+	Request string
+}
+
 func main() {
 	// RESTLER_PATH path, where to run command to create api request
 	var restlerPath = os.Getenv("RESTLER_PATH")
@@ -77,14 +82,25 @@ func main() {
 		fmt.Printf("[Restler Error]: Failed to load environment file! Make sure you have at least default.yaml file in %s/env folder to use environment variables in request!\n", restlerPath)
 	}
 
+	commonCommandFlags := []cli.Flag{
+		&cli.StringFlag{
+			Name:    "request",
+			Aliases: []string{"r"},
+			Usage:   "request to execute",
+			Value:   "",
+		},
+	}
+
 	app := &cli.App{
-		Name:  "Restler Application",
-		Usage: "Developer friendly rest client for developers only!!",
+		Name:    "Restler Application",
+		Usage:   "Developer friendly rest client for developers only!!",
+		Version: "v0.0.1-dev.5",
 		Commands: []*cli.Command{
 			{
 				Name:    "post",
 				Aliases: []string{"p"},
 				Usage:   "Run post request",
+				Flags:   commonCommandFlags,
 				Action: func(cCtx *cli.Context) error {
 					return restAction(cCtx, POST, restlerPath)
 				},
@@ -93,6 +109,7 @@ func main() {
 				Name:    "get",
 				Aliases: []string{"g"},
 				Usage:   "Run get request",
+				Flags:   commonCommandFlags,
 				Action: func(cCtx *cli.Context) error {
 					return restAction(cCtx, GET, restlerPath)
 				},
@@ -101,6 +118,7 @@ func main() {
 				Name:    "put",
 				Aliases: []string{"u"},
 				Usage:   "Run put request",
+				Flags:   commonCommandFlags,
 				Action: func(cCtx *cli.Context) error {
 					return restAction(cCtx, PUT, restlerPath)
 				},
@@ -109,6 +127,7 @@ func main() {
 				Name:    "delete",
 				Aliases: []string{"d"},
 				Usage:   "Run delete request",
+				Flags:   commonCommandFlags,
 				Action: func(cCtx *cli.Context) error {
 					return restAction(cCtx, DELETE, restlerPath)
 				},
@@ -117,6 +136,7 @@ func main() {
 				Name:    "patch",
 				Aliases: []string{"m"},
 				Usage:   "Run patch request",
+				Flags:   commonCommandFlags,
 				Action: func(cCtx *cli.Context) error {
 					return restAction(cCtx, PATCH, restlerPath)
 				},
@@ -143,6 +163,7 @@ const (
 )
 
 func restAction(cCtx *cli.Context, actionName ActionName, restlerPath string) error {
+
 	var req = cCtx.Args().Get(0)
 	if req == "" {
 		log.Fatal("[Restler Error]: No request provided! Please provide request name as argument. Request name is the name of the folder in requests folder.")
@@ -153,7 +174,15 @@ func restAction(cCtx *cli.Context, actionName ActionName, restlerPath string) er
 		log.Fatal("[Restler Error]: Request directory not found, please check the path. Request Directory Path: ", reqPath)
 	}
 
-	var reqFullPath = fmt.Sprintf("%s/%s.%s.yaml", reqPath, req, actionName)
+	// Note: request support with flag
+	reqFlag := cCtx.String("request")
+
+	reqName := req
+	if reqFlag != "" {
+		reqName = reqFlag
+	}
+
+	var reqFullPath = fmt.Sprintf("%s/%s.%s.yaml", reqPath, reqName, actionName)
 	fmt.Println("[Restler Log]: Processing Request: ", reqFullPath)
 
 	if _, err := os.Stat(reqFullPath); os.IsNotExist(err) {
@@ -175,7 +204,7 @@ func restAction(cCtx *cli.Context, actionName ActionName, restlerPath string) er
 		log.Fatal("[Restler error]: ", err)
 	}
 
-	outputFilePath := fmt.Sprintf("%s/.%s.res.txt", reqPath, actionName)
+	outputFilePath := fmt.Sprintf("%s/.%s.%s.res.txt", reqPath, reqName, actionName)
 	os.WriteFile(outputFilePath, responseBytes, 0644)
 	return nil
 }
