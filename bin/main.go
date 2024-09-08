@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/urfave/cli/v2"
@@ -19,11 +20,16 @@ import (
 )
 
 type Request struct {
-	Name    string            `yaml:"Name"`
-	URL     string            `yaml:"URL"`
-	Method  string            `yaml:"Method"`
-	Headers map[string]string `yaml:"Headers"`
-	Body    interface{}       `yaml:"Body"`
+	Name       string            `yaml:"Name"`
+	URL        string            `yaml:"URL"`
+	Method     string            `yaml:"Method"`
+	Headers    map[string]string `yaml:"Headers"`
+	Body       interface{}       `yaml:"Body"`
+	PostScript *PostScript       `yaml:"PostScript"`
+}
+
+type PostScript struct{
+	Env map[string]string `yaml:"Env"`
 }
 
 type Config struct {
@@ -46,12 +52,13 @@ var env map[string]string
 
 // global proxy url
 var gProxyUrl string
-
 const APP_VERSION = "v0.0.1-dev.5"
+
+var restlerPath string
 
 func main() {
 	// RESTLER_PATH path, where to run command to create api request
-	var restlerPath = os.Getenv("RESTLER_PATH")
+	restlerPath = os.Getenv("RESTLER_PATH")
 	if restlerPath == "" {
 		fmt.Println("[Restler Log]:RESTLER_PATH is not set, defaulting to restler")
 		restlerPath = "restler"
@@ -172,6 +179,7 @@ func restAction(cCtx *cli.Context, actionName ActionName, restlerPath string) er
 	// update env if env flag is set
 	envFlag := cCtx.String("env")
 	if envFlag != "" {
+		config.Env = envFlag
 		err := loadWithYaml(fmt.Sprintf("%s/env/%s.yaml", restlerPath, envFlag), &env)
 		if err != nil {
 			return fmt.Errorf("[Restler Error]: Environment you have selected is not found in %s/env folder \n", restlerPath)
@@ -218,12 +226,142 @@ func restAction(cCtx *cli.Context, actionName ActionName, restlerPath string) er
 		log.Fatal("[Restler error]: ", err)
 	}
 
+	updateEnvPostScript(pReq, pRes, body)
+
 	outputFilePath := fmt.Sprintf("%s/.%s.%s.res.md", reqPath, reqName, actionName)
 	os.WriteFile(outputFilePath, responseBytes, 0644)
 	return nil
 }
 
+func getNestedValue(data map[string]interface{}, keys string) (interface{}, bool) {
+    parts := strings.Split(keys, "][")
+    parts[0] = strings.TrimPrefix(parts[0], "[")
+    parts[len(parts)-1] = strings.TrimSuffix(parts[len(parts)-1], "]")
+
+    var current interface{} = data
+    for _, key := range parts {
+        if m, ok := current.(map[string]interface{}); ok {
+            current = m[key]
+        } else if a, ok := current.([]interface{}); ok {
+            index, err := strconv.Atoi(key)
+            if err != nil || index < 0 || index >= len(a) {
+                return nil, false
+            }
+            current = a[index]
+        } else {
+			return nil, false
+		}
+    }
+    return current, true
+}
+
+func headerToMap(header http.Header) map[string]interface{} {
+    result := make(map[string]interface{})
+    for key, values := range header {
+        if len(values) == 1 {
+            result[key] = values[0]
+        } else {
+            result[key] = values
+        }
+    }
+    return result
+}
+
+
+func updateEnvPostScript(req *Request, res *http.Response, body []byte){
+	if req.PostScript == nil || req.PostScript.Env == nil {
+		return
+	}
+
+	var envBodyMap = map[string]string{}
+	var envHeaderMap = map[string]string{}
+
+	for envKey, valKeys := range req.PostScript.Env {
+		if valKeys != "" {
+			if strings.HasPrefix(valKeys, "Body") {
+				envBodyMap[envKey] = strings.TrimPrefix(valKeys, "Body")
+			}
+			if strings.HasPrefix(valKeys, "Headers") {
+				envHeaderMap[envKey] = strings.TrimPrefix(valKeys, "Headers")
+			}
+		}
+	}
+	
+	var envBodyValueMap = map[string]string{}
+	var envHeaderValueMap = map[string]string{}
+
+	for envKey, envBodyKey := range envBodyMap {
+		var jsonBody map[string]interface{}
+		if envBodyKey != "" {
+			err := json.Unmarshal(body, &jsonBody)
+			if err != nil {
+				fmt.Println("[Update Env Log ] Body is not in JSON format: ", err)
+				return;
+			}
+			if val, ok := getNestedValue(jsonBody, envBodyKey); ok {
+				envBodyValueMap[envKey] = fmt.Sprintf("%v", val)
+			}else{
+				fmt.Println("[Update Env Log] Value not found for key: ", envBodyKey)
+				envBodyValueMap[envKey] = ""
+			}
+		}
+	}
+
+	headerMap := headerToMap(res.Header)
+	for envKey, envHeaderKey := range envHeaderMap {
+		if val, ok := getNestedValue(headerMap, envHeaderKey); ok {
+			envHeaderValueMap[envKey] = fmt.Sprintf("%v", val)
+		} else {
+			fmt.Println("[Update Env Log] Value not found for key: ", envHeaderKey)
+			envHeaderValueMap[envKey] = ""
+		}
+	}
+
+	envPath := fmt.Sprintf("%s/env/%s.yaml", restlerPath, config.Env)
+	newEnvMap := convertMap(env)
+	mergeMaps(newEnvMap, convertMap(envBodyValueMap))
+	mergeMaps(newEnvMap, convertMap(envHeaderValueMap))
+
+	err := writeYAMLFile(envPath, newEnvMap)
+	if err != nil {
+		fmt.Println("[Restler Log]: Failed to write env file: ", err)
+	}
+}
+
+func writeYAMLFile(filename string, data map[string]interface{}) error {
+    out, err := yaml.Marshal(data)
+    if err != nil {
+        return err
+    }
+    return os.WriteFile(filename, out, 0644)
+}
+
+func convertMap[K comparable, V any](m map[K]V) map[string]interface{} {
+    result := make(map[string]interface{})
+    for k, v := range m {
+        result[fmt.Sprintf("%v", k)] = v
+    }
+    return result
+}
+
+
+func mergeMaps[K comparable](dest, src map[K]interface{}) {
+    for key, value := range src {
+        if v, ok := value.(map[K]interface{}); ok {
+            if dv, ok := dest[key].(map[K]interface{}); ok {
+                mergeMaps(dv, v)
+                continue
+            }
+        }
+        dest[key] = value
+    }
+}
+
+
 func prepareResponse(req *Request, res *http.Response, body []byte) ([]byte, error) {
+
+
+
 	var buffer bytes.Buffer
 	buffer.WriteString(fmt.Sprintf("# Response For: %s \n", req.Name))
 	buffer.WriteString(fmt.Sprintf("Status Code: %d, Status: %s\n", res.StatusCode, res.Status))

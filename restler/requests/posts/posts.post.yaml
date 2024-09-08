@@ -34,3 +34,24 @@ Body:
           role: Lead Developer
         - name: Project Beta
           role: Contributor
+PostScript:
+  Env:
+    ADDRESS_STREET: Body[address][street]
+    HOBBIES: Body[hobbies][0]
+    RESPONSE_DATE: Headers[Date]
+    EMPLOYMENT_START_DATE: Body[employment][details][start_date]
+  Assert:
+    - Field: name
+      Equals: John
+    - Field: age
+      Equals: 30
+    - Field: address.street
+      Equals: 123 Main St
+    - Field: address.city
+      Equals: Anytown
+    - Field: hobbies
+      Equals:
+        - reading
+        - gaming
+    - Field: contact.email
+      Equals: john.doe@example.com
