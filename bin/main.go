@@ -281,8 +281,8 @@ func updateEnvPostScript(req *Request, res *http.Response, body []byte){
 			if strings.HasPrefix(valKeys, "Body") {
 				envBodyMap[envKey] = strings.TrimPrefix(valKeys, "Body")
 			}
-			if strings.HasPrefix(valKeys, "Headers") {
-				envHeaderMap[envKey] = strings.TrimPrefix(valKeys, "Headers")
+			if strings.HasPrefix(valKeys, "Header") {
+				envHeaderMap[envKey] = strings.TrimPrefix(valKeys, "Header")
 			}
 		}
 	}

@@ -35,6 +35,7 @@ curl -s https://raw.githubusercontent.com/shrijan00003/restler/main/install/linu
 9. for other supports please check the [TODO](./todos/Todo.md) file.
 
 ## Commands Available
+
 - `restler post <request-name>` or `restler p <request-name>`
 - `restler get <request-name>` or `restler g <request-name>`
 - `restler patch <request-name>` or `restler m <request-name>`
@@ -44,22 +45,29 @@ curl -s https://raw.githubusercontent.com/shrijan00003/restler/main/install/linu
 - `restler --version` or `restler -v`
 
 ## Flag support
+
 Now all our REST method commands supports following flags:
 
 ### --env or -e
+
 `env` flag is compatible for selecting environment from the command line. If we don't pass this option in command `Env` from config.yaml is default.
 
 ### Usage
+
 ```bash
 restler <http-command> --env <env-value> <request name>
 ```
+
 Fog eg,
+
 ```bash
 restler p -e dev posts
 ```
 
 ### --request or -r
+
 `request` flag is useful for seleting individual request from the request collection if you have multiple requests of same http method. Consider following structure:
+
 ```bash
 reslter
     requests
@@ -69,16 +77,42 @@ reslter
 
 
 ```
-For running posts-v2, we can use ` -r ` like following:
+
+For running posts-v2, we can use `-r` like following:
+
 ```bash
 restler p -r posts-v2 posts
 ```
+
+## Setup Environment Variables from Response
+
+For setting environment variables from response, we can use `After` section in request file. For example:
+
+```yaml
+Name: Create Post
+URL: "{{API_URL}}"
+Method: POST
+
+Headers: ...
+
+Body: ...
+
+After:
+  Env:
+    ADDRESS_STREET: Body[address][street]
+    HOBBIES: Body[hobbies][0]
+    RESPONSE_DATE: Header[Date]
+    EMPLOYMENT_START_DATE: Body[employment][details][start_date]
+```
+
+Here, `Body` and `Header` are special keys for accessing response body and response headers respectively. For accessing, we can use `Body[key]` or `Header[key]` syntax. If you have array like structure, you can access it using `Body[key][index]` or `Header[key][index]`. If value is not found, it will write empty string in your env file.
 
 ## Proxy Usage
 
 Restler respects the `HTTPS_PROXY` and `HTTP_PROXY` environment variables. You can specify a proxy URL for individual requests using the `R-Proxy-Url` header. To disable the proxy for specific requests, use the `R-Proxy-Enable: N` header.
 
 for eg:
+
 ```yaml
 Name: Get Posts
 URL: "{{API_URL}}"
