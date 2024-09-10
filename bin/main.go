@@ -25,10 +25,10 @@ type Request struct {
 	Method     string            `yaml:"Method"`
 	Headers    map[string]string `yaml:"Headers"`
 	Body       interface{}       `yaml:"Body"`
-	PostScript *PostScript       `yaml:"PostScript"`
+	After      *After            `yaml:"After"`	
 }
 
-type PostScript struct{
+type After struct{
 	Env map[string]string `yaml:"Env"`
 }
 
@@ -269,14 +269,14 @@ func headerToMap(header http.Header) map[string]interface{} {
 
 
 func updateEnvPostScript(req *Request, res *http.Response, body []byte){
-	if req.PostScript == nil || req.PostScript.Env == nil {
+	if req.After == nil || req.After.Env == nil {
 		return
 	}
 
 	var envBodyMap = map[string]string{}
 	var envHeaderMap = map[string]string{}
 
-	for envKey, valKeys := range req.PostScript.Env {
+	for envKey, valKeys := range req.After.Env {
 		if valKeys != "" {
 			if strings.HasPrefix(valKeys, "Body") {
 				envBodyMap[envKey] = strings.TrimPrefix(valKeys, "Body")
