@@ -2,7 +2,7 @@
 
 # Variables
 REPO="shrijan00003/restler"
-VERSION="v0.0.1-dev.5"
+VERSION="v0.0.1-dev.6"
 BINARY_NAME="restler"
 TAR_FILE="${BINARY_NAME}-${VERSION}-linux-amd64.tar.gz"
 DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${TAR_FILE}"
