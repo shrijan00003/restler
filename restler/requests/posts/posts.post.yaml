@@ -34,9 +34,9 @@ Body:
           role: Lead Developer
         - name: Project Beta
           role: Contributor
-PostScript:
+After:
   Env:
     ADDRESS_STREET: Body[address][street]
     HOBBIES: Body[hobbies][0]
-    RESPONSE_DATE: Headers[Date]
+    RESPONSE_DATE: Header[Date]
     EMPLOYMENT_START_DATE: Body[employment][details][start_date]

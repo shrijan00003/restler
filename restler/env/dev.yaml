@@ -1,7 +1,3 @@
-ADDRESS_STREET: 123 Main St
 API_URL: https://jsonplaceholder.typicode.com/posts
 CLIENT_ID: sample_client_id
 CLIENT_SECRET: sample_client_secret
-EMPLOYMENT_START_DATE: "2020-01-15"
-HOBBIES: reading
-RESPONSE_DATE: Sun, 08 Sep 2024 17:23:59 GMT
