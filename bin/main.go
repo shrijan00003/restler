@@ -14,6 +14,10 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/urfave/cli/v2"
 	"gopkg.in/yaml.v3"
@@ -55,6 +59,8 @@ var gProxyUrl string
 const APP_VERSION = "v0.0.1-dev.6"
 
 var restlerPath string
+
+
 
 func main() {
 	// RESTLER_PATH path, where to run command to create api request
@@ -104,6 +110,14 @@ func main() {
 		Usage:   "Developer friendly rest client for developers only!!",
 		Version: APP_VERSION,
 		Commands: []*cli.Command{
+			{
+				Name: "init",
+				Aliases: []string{"i"},
+				Usage: "Initialize restler project",
+				Action: func(cCtx *cli.Context) error {
+					return initRestlerProject()
+				},
+			},
 			{
 				Name:    "post",
 				Aliases: []string{"p"},
@@ -157,7 +171,88 @@ func main() {
 	}
 
 }
+// init restler project
+// init command should be able to set the RESTLER_PATH in .env file which will be loaded by restler. 
+// it should be creating default files and folders in the path. 
+// it should also ask if user wants to create sample requests
+// bubbletea types
+type textInputModel struct{
+	textInput textinput.Model
+	err error
+	message string
+}
 
+type (
+	errMsg error
+)
+
+func initialTextInputModel() textInputModel {
+	ti := textinput.New()
+	ti.Placeholder = "restler"
+	ti.Focus()
+	ti.CharLimit = 156
+	ti.Width = 20
+
+	return textInputModel{
+		textInput: ti,
+		err:       nil,
+	}
+}
+
+func (m textInputModel) Init() tea.Cmd {
+	return textinput.Blink
+}
+
+func (m textInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyCtrlC, tea.KeyEsc:
+			return m, tea.Quit
+		
+		case tea.KeyEnter:
+			executeInitCommand(m.textInput.Value())
+			return m, tea.Quit
+		}
+	// We handle errors just like any other message
+	case errMsg:
+		m.err = msg
+		return m, nil
+	}
+
+	m.textInput, cmd = m.textInput.Update(msg)
+	return m, cmd
+}
+
+func (m textInputModel) View() string {
+	return fmt.Sprintf(
+		"Where do you want to initialize your restler project? \n\n%s\n\n%s",
+		m.textInput.View(),
+		"(esc to quit)",
+	) + "\n"
+}
+func initRestlerProject() error {
+	p:= tea.NewProgram(initialTextInputModel())
+	if _, err := p.Run(); err != nil {
+		fmt.Println("Error occurred while initializing restler project: ", err)
+		return err;
+	}
+	return nil;
+}
+
+func executeInitCommand(path string) error {
+	fmt.Println("Initializing restler project in: ", path, ".....")
+	time.Sleep(time.Second * 2)
+	fmt.Println("Restler project initialized successfully!")
+	return nil;
+}
+
+// INIT functionality ends here
+
+
+// 
 type ActionName string
 
 const (
