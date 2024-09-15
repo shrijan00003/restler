@@ -1,5 +1,6 @@
 # Ignore response file
-**/.*.response.txt
-**/.*.res.txt
 **/.*.res.md
-**/.*.response.json
+
+# Ignore .env file
+.env
+.env.local

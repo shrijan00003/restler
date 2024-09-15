@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
@@ -14,10 +15,10 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/joho/godotenv"
 
 	"github.com/urfave/cli/v2"
 	"gopkg.in/yaml.v3"
@@ -64,6 +65,10 @@ var restlerPath string
 
 func main() {
 	// RESTLER_PATH path, where to run command to create api request
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Println("[Restler Log]: Error loading .env file: ", err)
+	}
 	restlerPath = os.Getenv("RESTLER_PATH")
 	if restlerPath == "" {
 		fmt.Println("[Restler Log]:RESTLER_PATH is not set, defaulting to restler")
@@ -80,7 +85,7 @@ func main() {
 	}
 
 	// Load configs
-	err := loadWithYaml(fmt.Sprintf("%s/config.yaml", restlerPath), &config)
+	err = loadWithYaml(fmt.Sprintf("%s/config.yaml", restlerPath), &config)
 	if err != nil {
 		fmt.Println("[Restler Log]:Failed to load config file, taking all defaults, err:", err)
 		config.DefaultConfig()
@@ -171,11 +176,10 @@ func main() {
 	}
 
 }
+
 // init restler project
 // init command should be able to set the RESTLER_PATH in .env file which will be loaded by restler. 
 // it should be creating default files and folders in the path. 
-// it should also ask if user wants to create sample requests
-// bubbletea types
 type textInputModel struct{
 	textInput textinput.Model
 	err error
@@ -216,7 +220,6 @@ func (m textInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			executeInitCommand(m.textInput.Value())
 			return m, tea.Quit
 		}
-	// We handle errors just like any other message
 	case errMsg:
 		m.err = msg
 		return m, nil
@@ -243,16 +246,181 @@ func initRestlerProject() error {
 }
 
 func executeInitCommand(path string) error {
-	fmt.Println("Initializing restler project in: ", path, ".....")
-	time.Sleep(time.Second * 2)
-	fmt.Println("Restler project initialized successfully!")
+	// if path exists, thats it, otherwise ask if user wants to create it 
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		fmt.Println("[log]: Path doesn't exist, creating restler project in: ", path)
+		err:= os.MkdirAll(path, 0755)
+		if err != nil {
+			fmt.Println("[error]: Error occurred while creating restler project: ", err)
+			return err;
+		}
+		err = createDefaultFiles(path)
+		if err != nil {
+			fmt.Println("[error]: Error occurred while creating default files: ", err)
+			return err;
+		}
+		updateEnv(path);
+		return nil;
+	}else{
+		fmt.Println("[info]: path exists, updating RESTLER_PATH env: ")
+		updateEnv(path);
+		return nil;
+	}
+
+}
+
+
+func findDotEnvFile() (string, error) {
+	dotEnvPath := ".env"
+	_, err := os.Stat(dotEnvPath)
+	if os.IsNotExist(err) {
+		dotEnvPath = ".env.local"
+		_, err := os.Stat(dotEnvPath)
+		if os.IsNotExist(err) {
+			return "", err
+		}
+	}
+	
+	return dotEnvPath, nil
+}
+
+
+func updateEnv(path string) error {
+	dotEnvPath, err := findDotEnvFile()
+	if err != nil {
+		fmt.Println("[log]: env file .env or .env.local not found, creating .env file :")
+		if _, err:= os.Create(".env") ; err!= nil {
+			fmt.Println("[error]: Error occurred while creating .env file: ", err)
+			return err
+		}
+		dotEnvPath = ".env"
+	}
+
+	return updateDotEnvFile(dotEnvPath, path)
+}
+
+func updateDotEnvFile(envPath, restlerPath string) error {
+   file,err := os.Open(envPath)
+   if err != nil {
+		fmt.Println("[error]: Error occurred while opening .env file: ", err)
+		return err
+   }
+   defer file.Close()
+
+   // read the file line by line
+   scanner := bufio.NewScanner(file)
+   var lines []string
+   var restlerPathFound bool
+   for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "RESTLER_PATH") {
+			// update RESTLER_PATH in .env file
+			restlerPathFound = true
+			line = fmt.Sprintf("RESTLER_PATH=%s", restlerPath)
+		}
+		lines = append(lines, line)
+   }
+
+   if !restlerPathFound {
+	   lines = append(lines, "RESTLER_PATH="+restlerPath)
+   }
+
+	if err := scanner.Err(); err != nil {
+		fmt.Printf("[error]: Error occurred while reading %s file: %s\n", envPath, err)
+		return err
+	}
+
+   err = os.WriteFile(envPath, []byte(strings.Join(lines, "\n")), 0644)
+   if err != nil {
+		fmt.Printf("[error]: Error occurred while updating %s file: %s\n", envPath, err)
+		return err
+	}
+	return nil;
+}
+
+func createDefaultFiles(path string) error {
+	// create config file
+	configPath := fmt.Sprintf("%s/config.yaml", path)
+	configFile, err := os.Create(configPath)
+	if err != nil {
+		return err
+	}
+	defer configFile.Close()
+	
+	// write default environment default to config file
+	configFileContent := "Env: default"
+	_, err = configFile.WriteString(configFileContent)
+	if err != nil {
+		return err
+	}
+
+	// create env folder
+	envPath := fmt.Sprintf("%s/env", path)
+	err = os.Mkdir(envPath, 0755)
+	if err != nil {
+		return err
+	}
+
+	// create default.yaml file in env folder
+	defaultFile, err := os.Create(fmt.Sprintf("%s/default.yaml", envPath))
+	if err != nil {
+		return err
+	}
+	defer defaultFile.Close()
+
+	// default file content on env/default.yaml
+	defaultFileContent := "Name: default"
+	_, err = defaultFile.WriteString(defaultFileContent)
+	if err != nil {
+		return err
+	}
+	
+	// create requests folder with sample request
+	requestsPath := fmt.Sprintf("%s/requests/sample", path)
+	err = os.MkdirAll(requestsPath, 0755)
+	if err != nil {
+		return err
+	}
+
+	// create sample request
+	sampleRequestPath := fmt.Sprintf("%s/sample.post.yaml", requestsPath)
+	sampleRequestFile, err := os.Create(sampleRequestPath)
+	if err != nil {
+		return err
+	}
+	defer sampleRequestFile.Close()
+	// TODO: Write sample post request command to this file
+	// read content from the github repo and write to the file
+	sampleRequestFileContent := "Name: sample"
+	_, err = sampleRequestFile.WriteString(sampleRequestFileContent)
+	if err != nil {
+		return err
+	}
+
+	// update .gitignore file
+	var gitIgnoreFile *os.File
+	_,err = os.Stat(".gitignore")
+	if os.IsNotExist(err) {
+		gitIgnoreFile, err = os.Create(".gitignore")
+		if err != nil {
+			fmt.Println("[error]: Error occurred while creating .gitignore file: ", err)
+			return err
+		}
+	}
+	defer gitIgnoreFile.Close()
+	// update .gitignore file
+	gitIgnoreFileContent := "# Ignore response file\n**/.*.res.md\n\n# Ignore .env file\n.env\n.env.local\n"
+	_, err = gitIgnoreFile.WriteString(gitIgnoreFileContent)
+	if err != nil {
+		return err
+	}
+
+
 	return nil;
 }
 
 // INIT functionality ends here
 
-
-// 
 type ActionName string
 
 const (
