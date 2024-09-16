@@ -64,39 +64,6 @@ var restlerPath string
 
 
 func main() {
-	// RESTLER_PATH path, where to run command to create api request
-	err := godotenv.Load()
-	if err != nil {
-		fmt.Println("[Restler Log]: Error loading .env file: ", err)
-	}
-	restlerPath = os.Getenv("RESTLER_PATH")
-	if restlerPath == "" {
-		fmt.Println("[Restler Log]:RESTLER_PATH is not set, defaulting to restler")
-		restlerPath = "restler"
-	}
-
-	// Load proxy from env supports both HTTPS_PROXY and HTTP_PROXY
-	gProxyUrl = os.Getenv("HTTPS_PROXY")
-	if gProxyUrl == "" {
-		gProxyUrl = os.Getenv("HTTP_PROXY")
-		if gProxyUrl == "" {
-			gProxyUrl = ""
-		}
-	}
-
-	// Load configs
-	err = loadWithYaml(fmt.Sprintf("%s/config.yaml", restlerPath), &config)
-	if err != nil {
-		fmt.Println("[Restler Log]:Failed to load config file, taking all defaults, err:", err)
-		config.DefaultConfig()
-	}
-
-	// Load Environment
-	err = loadWithYaml(fmt.Sprintf("%s/env/%s.yaml", restlerPath, config.Env), &env)
-	if err != nil {
-		fmt.Printf("[Restler Error]: Failed to load environment file! Make sure you have at least default.yaml file in %s/env folder to use environment variables in request!\n", restlerPath)
-	}
-
 	commonCommandFlags := []cli.Flag{
 		&cli.StringFlag{
 			Name:    "request",
@@ -129,6 +96,7 @@ func main() {
 				Usage:   "Run post request",
 				Flags:   commonCommandFlags,
 				Action: func(cCtx *cli.Context) error {
+					initialize()
 					return restAction(cCtx, POST, restlerPath)
 				},
 			},
@@ -138,6 +106,7 @@ func main() {
 				Usage:   "Run get request",
 				Flags:   commonCommandFlags,
 				Action: func(cCtx *cli.Context) error {
+					initialize()
 					return restAction(cCtx, GET, restlerPath)
 				},
 			},
@@ -147,6 +116,7 @@ func main() {
 				Usage:   "Run put request",
 				Flags:   commonCommandFlags,
 				Action: func(cCtx *cli.Context) error {
+					initialize()
 					return restAction(cCtx, PUT, restlerPath)
 				},
 			},
@@ -156,6 +126,7 @@ func main() {
 				Usage:   "Run delete request",
 				Flags:   commonCommandFlags,
 				Action: func(cCtx *cli.Context) error {
+					initialize()
 					return restAction(cCtx, DELETE, restlerPath)
 				},
 			},
@@ -165,6 +136,7 @@ func main() {
 				Usage:   "Run patch request",
 				Flags:   commonCommandFlags,
 				Action: func(cCtx *cli.Context) error {
+					initialize()
 					return restAction(cCtx, PATCH, restlerPath)
 				},
 			},
@@ -175,6 +147,42 @@ func main() {
 		log.Fatal(err)
 	}
 
+}
+
+// initialize restler project
+func initialize(){
+	// RESTLER_PATH path, where to run command to create api request
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Println("[Restler Log]: Error loading .env file: ", err)
+	}
+	restlerPath = os.Getenv("RESTLER_PATH")
+	if restlerPath == "" {
+		fmt.Println("[restler Log]:RESTLER_PATH is not set, defaulting to restler")
+		restlerPath = "restler"
+	}
+
+	// Load proxy from env supports both HTTPS_PROXY and HTTP_PROXY
+	gProxyUrl = os.Getenv("HTTPS_PROXY")
+	if gProxyUrl == "" {
+		gProxyUrl = os.Getenv("HTTP_PROXY")
+		if gProxyUrl == "" {
+			gProxyUrl = ""
+		}
+	}
+
+	// Load configs
+	err = loadWithYaml(fmt.Sprintf("%s/config.yaml", restlerPath), &config)
+	if err != nil {
+		fmt.Println("[restler log]:Failed to load config file, using default env, err:", err)
+		config.DefaultConfig()
+	}
+
+	// Load Environment
+	err = loadWithYaml(fmt.Sprintf("%s/env/%s.yaml", restlerPath, config.Env), &env)
+	if err != nil {
+		fmt.Printf("[restler Error]: Failed to load environment file! Make sure you have at least default.yaml file in %s/env folder to use environment variables in request!\n", restlerPath)
+	}
 }
 
 // init restler project
@@ -397,24 +405,18 @@ func createDefaultFiles(path string) error {
 		return err
 	}
 
-	// update .gitignore file
-	var gitIgnoreFile *os.File
-	_,err = os.Stat(".gitignore")
-	if os.IsNotExist(err) {
-		gitIgnoreFile, err = os.Create(".gitignore")
-		if err != nil {
-			fmt.Println("[error]: Error occurred while creating .gitignore file: ", err)
-			return err
-		}
-	}
-	defer gitIgnoreFile.Close()
-	// update .gitignore file
-	gitIgnoreFileContent := "# Ignore response file\n**/.*.res.md\n\n# Ignore .env file\n.env\n.env.local\n"
-	_, err = gitIgnoreFile.WriteString(gitIgnoreFileContent)
+	file, err := os.OpenFile(".gitignore", os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
+		fmt.Println("[error]: Error occurred while opening .gitignore file: ", err)
 		return err
 	}
-
+	defer file.Close()
+	fileContent := "# Ignore response file\n**/.*.res.md\n\n# Ignore .env file\n.env\n.env.local\n"
+	_, err = file.WriteString(fileContent)
+	if err != nil {
+		fmt.Println("[error]: Error occurred while writing to .gitignore file: ", err)
+		return err
+	}
 
 	return nil;
 }
