@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
@@ -14,6 +15,10 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/joho/godotenv"
 
 	"github.com/urfave/cli/v2"
 	"gopkg.in/yaml.v3"
@@ -52,40 +57,13 @@ var env map[string]string
 
 // global proxy url
 var gProxyUrl string
-const APP_VERSION = "v0.0.1-dev.6"
+const APP_VERSION = "v0.0.1-dev.7"
 
 var restlerPath string
 
+
+
 func main() {
-	// RESTLER_PATH path, where to run command to create api request
-	restlerPath = os.Getenv("RESTLER_PATH")
-	if restlerPath == "" {
-		fmt.Println("[Restler Log]:RESTLER_PATH is not set, defaulting to restler")
-		restlerPath = "restler"
-	}
-
-	// Load proxy from env supports both HTTPS_PROXY and HTTP_PROXY
-	gProxyUrl = os.Getenv("HTTPS_PROXY")
-	if gProxyUrl == "" {
-		gProxyUrl = os.Getenv("HTTP_PROXY")
-		if gProxyUrl == "" {
-			gProxyUrl = ""
-		}
-	}
-
-	// Load configs
-	err := loadWithYaml(fmt.Sprintf("%s/config.yaml", restlerPath), &config)
-	if err != nil {
-		fmt.Println("[Restler Log]:Failed to load config file, taking all defaults, err:", err)
-		config.DefaultConfig()
-	}
-
-	// Load Environment
-	err = loadWithYaml(fmt.Sprintf("%s/env/%s.yaml", restlerPath, config.Env), &env)
-	if err != nil {
-		fmt.Printf("[Restler Error]: Failed to load environment file! Make sure you have at least default.yaml file in %s/env folder to use environment variables in request!\n", restlerPath)
-	}
-
 	commonCommandFlags := []cli.Flag{
 		&cli.StringFlag{
 			Name:    "request",
@@ -105,11 +83,20 @@ func main() {
 		Version: APP_VERSION,
 		Commands: []*cli.Command{
 			{
+				Name: "init",
+				Aliases: []string{"i"},
+				Usage: "Initialize restler project",
+				Action: func(cCtx *cli.Context) error {
+					return initRestlerProject()
+				},
+			},
+			{
 				Name:    "post",
 				Aliases: []string{"p"},
 				Usage:   "Run post request",
 				Flags:   commonCommandFlags,
 				Action: func(cCtx *cli.Context) error {
+					initialize()
 					return restAction(cCtx, POST, restlerPath)
 				},
 			},
@@ -119,6 +106,7 @@ func main() {
 				Usage:   "Run get request",
 				Flags:   commonCommandFlags,
 				Action: func(cCtx *cli.Context) error {
+					initialize()
 					return restAction(cCtx, GET, restlerPath)
 				},
 			},
@@ -128,6 +116,7 @@ func main() {
 				Usage:   "Run put request",
 				Flags:   commonCommandFlags,
 				Action: func(cCtx *cli.Context) error {
+					initialize()
 					return restAction(cCtx, PUT, restlerPath)
 				},
 			},
@@ -137,6 +126,7 @@ func main() {
 				Usage:   "Run delete request",
 				Flags:   commonCommandFlags,
 				Action: func(cCtx *cli.Context) error {
+					initialize()
 					return restAction(cCtx, DELETE, restlerPath)
 				},
 			},
@@ -146,6 +136,7 @@ func main() {
 				Usage:   "Run patch request",
 				Flags:   commonCommandFlags,
 				Action: func(cCtx *cli.Context) error {
+					initialize()
 					return restAction(cCtx, PATCH, restlerPath)
 				},
 			},
@@ -157,6 +148,298 @@ func main() {
 	}
 
 }
+
+// initialize restler project
+func initialize(){
+	// RESTLER_PATH path, where to run command to create api request
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Println("[Restler Log]: Error loading .env file: ", err)
+	}
+	restlerPath = os.Getenv("RESTLER_PATH")
+	if restlerPath == "" {
+		fmt.Println("[restler Log]:RESTLER_PATH is not set, defaulting to restler")
+		restlerPath = "restler"
+	}
+
+	// Load proxy from env supports both HTTPS_PROXY and HTTP_PROXY
+	gProxyUrl = os.Getenv("HTTPS_PROXY")
+	if gProxyUrl == "" {
+		gProxyUrl = os.Getenv("HTTP_PROXY")
+		if gProxyUrl == "" {
+			gProxyUrl = ""
+		}
+	}
+
+	// Load configs
+	err = loadWithYaml(fmt.Sprintf("%s/config.yaml", restlerPath), &config)
+	if err != nil {
+		fmt.Println("[restler log]:Failed to load config file, using default env, err:", err)
+		config.DefaultConfig()
+	}
+
+	// Load Environment
+	err = loadWithYaml(fmt.Sprintf("%s/env/%s.yaml", restlerPath, config.Env), &env)
+	if err != nil {
+		fmt.Printf("[restler Error]: Failed to load environment file! Make sure you have at least default.yaml file in %s/env folder to use environment variables in request!\n", restlerPath)
+	}
+}
+
+// init restler project
+// init command should be able to set the RESTLER_PATH in .env file which will be loaded by restler. 
+// it should be creating default files and folders in the path. 
+type textInputModel struct{
+	textInput textinput.Model
+	err error
+	message string
+}
+
+type (
+	errMsg error
+)
+
+func initialTextInputModel() textInputModel {
+	ti := textinput.New()
+	ti.Placeholder = "restler"
+	ti.Focus()
+	ti.CharLimit = 156
+	ti.Width = 20
+
+	return textInputModel{
+		textInput: ti,
+		err:       nil,
+	}
+}
+
+func (m textInputModel) Init() tea.Cmd {
+	return textinput.Blink
+}
+
+func (m textInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyCtrlC, tea.KeyEsc:
+			return m, tea.Quit
+		
+		case tea.KeyEnter:
+			executeInitCommand(m.textInput.Value())
+			return m, tea.Quit
+		}
+	case errMsg:
+		m.err = msg
+		return m, nil
+	}
+
+	m.textInput, cmd = m.textInput.Update(msg)
+	return m, cmd
+}
+
+func (m textInputModel) View() string {
+	return fmt.Sprintf(
+		"Where do you want to initialize your restler project? \n\n%s\n\n%s",
+		m.textInput.View(),
+		"(esc to quit)",
+	) + "\n"
+}
+func initRestlerProject() error {
+	p:= tea.NewProgram(initialTextInputModel())
+	if _, err := p.Run(); err != nil {
+		fmt.Println("Error occurred while initializing restler project: ", err)
+		return err;
+	}
+	return nil;
+}
+// TODO: Will download the sample folder from github repo instead of creating each one one by one
+func executeInitCommand(path string) error {
+	// if path exists, thats it, otherwise ask if user wants to create it 
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		fmt.Println("[log]: Path doesn't exist, creating restler project in: ", path)
+		err:= os.MkdirAll(path, 0755)
+		if err != nil {
+			fmt.Println("[error]: Error occurred while creating restler project: ", err)
+			return err;
+		}
+		err = createDefaultFiles(path)
+		if err != nil {
+			fmt.Println("[error]: Error occurred while creating default files: ", err)
+			return err;
+		}
+		updateEnv(path);
+		return nil;
+	}else{
+		fmt.Println("[info]: path exists, updating RESTLER_PATH env: ")
+		updateEnv(path);
+		return nil;
+	}
+
+}
+
+
+
+func findDotEnvFile() (string, error) {
+	dotEnvPath := ".env"
+	_, err := os.Stat(dotEnvPath)
+	if os.IsNotExist(err) {
+		dotEnvPath = ".env.local"
+		_, err := os.Stat(dotEnvPath)
+		if os.IsNotExist(err) {
+			return "", err
+		}
+	}
+	
+	return dotEnvPath, nil
+}
+
+
+func updateEnv(path string) error {
+	dotEnvPath, err := findDotEnvFile()
+	if err != nil {
+		fmt.Println("[log]: env file .env or .env.local not found, creating .env file :")
+		if _, err:= os.Create(".env") ; err!= nil {
+			fmt.Println("[error]: Error occurred while creating .env file: ", err)
+			return err
+		}
+		dotEnvPath = ".env"
+	}
+
+	return updateDotEnvFile(dotEnvPath, path)
+}
+
+func updateDotEnvFile(envPath, restlerPath string) error {
+   file,err := os.Open(envPath)
+   if err != nil {
+		fmt.Println("[error]: Error occurred while opening .env file: ", err)
+		return err
+   }
+   defer file.Close()
+
+   // read the file line by line
+   scanner := bufio.NewScanner(file)
+   var lines []string
+   var restlerPathFound bool
+   for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "RESTLER_PATH") {
+			// update RESTLER_PATH in .env file
+			restlerPathFound = true
+			line = fmt.Sprintf("RESTLER_PATH=%s", restlerPath)
+		}
+		lines = append(lines, line)
+   }
+
+   if !restlerPathFound {
+	   lines = append(lines, "RESTLER_PATH="+restlerPath)
+   }
+
+	if err := scanner.Err(); err != nil {
+		fmt.Printf("[error]: Error occurred while reading %s file: %s\n", envPath, err)
+		return err
+	}
+
+   err = os.WriteFile(envPath, []byte(strings.Join(lines, "\n")), 0644)
+   if err != nil {
+		fmt.Printf("[error]: Error occurred while updating %s file: %s\n", envPath, err)
+		return err
+	}
+	return nil;
+}
+
+func createDefaultFiles(path string) error {
+	// create config file
+	configPath := fmt.Sprintf("%s/config.yaml", path)
+	configFile, err := os.Create(configPath)
+	if err != nil {
+		return err
+	}
+	defer configFile.Close()
+	
+	// write default environment default to config file
+	configFileContent := "Env: default"
+	_, err = configFile.WriteString(configFileContent)
+	if err != nil {
+		return err
+	}
+
+	// create env folder
+	envPath := fmt.Sprintf("%s/env", path)
+	err = os.Mkdir(envPath, 0755)
+	if err != nil {
+		return err
+	}
+
+	// create default.yaml file in env folder
+	defaultFile, err := os.Create(fmt.Sprintf("%s/default.yaml", envPath))
+	if err != nil {
+		return err
+	}
+	defer defaultFile.Close()
+
+	// default file content on env/default.yaml
+	defaultFileContent := "API_URL: https://jsonplaceholder.typicode.com/posts"
+	_, err = defaultFile.WriteString(defaultFileContent)
+	if err != nil {
+		return err
+	}
+	
+	// create requests folder with sample request
+	requestsPath := fmt.Sprintf("%s/requests/sample", path)
+	err = os.MkdirAll(requestsPath, 0755)
+	if err != nil {
+		return err
+	}
+
+	// create sample request
+	sampleRequestPath := fmt.Sprintf("%s/sample.post.yaml", requestsPath)
+	sampleRequestFile, err := os.Create(sampleRequestPath)
+	if err != nil {
+		return err
+	}
+	defer sampleRequestFile.Close()
+
+	sampleRequestFileContent, _ := getFileContent("https://raw.githubusercontent.com/shrijan00003/restler/main/sample/requests/posts/posts.post.yaml")
+	_, err = sampleRequestFile.WriteString(sampleRequestFileContent)
+	if err != nil {
+		return err
+	}
+
+	file, err := os.OpenFile(".gitignore", os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Println("[error]: Error occurred while opening .gitignore file: ", err)
+		return err
+	}
+	defer file.Close()
+	fileContent := "# Ignore response file\n**/.*.res.md\n\n# Ignore .env file\n.env\n.env.local\n"
+	_, err = file.WriteString(fileContent)
+	if err != nil {
+		fmt.Println("[error]: Error occurred while writing to .gitignore file: ", err)
+		return err
+	}
+
+	return nil;
+}
+
+func getFileContent(url string) (string, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to get file content from %s, status code: %d", url, resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	return string(body), nil
+}
+
+// INIT functionality ends here
 
 type ActionName string
 
@@ -182,7 +465,7 @@ func restAction(cCtx *cli.Context, actionName ActionName, restlerPath string) er
 		config.Env = envFlag
 		err := loadWithYaml(fmt.Sprintf("%s/env/%s.yaml", restlerPath, envFlag), &env)
 		if err != nil {
-			return fmt.Errorf("[Restler Error]: Environment you have selected is not found in %s/env folder \n", restlerPath)
+			return fmt.Errorf("restler >>[Error]: Environment you have selected is not found in %s/env folder", restlerPath)
 		}
 	}
 
