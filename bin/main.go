@@ -57,7 +57,7 @@ var env map[string]string
 
 // global proxy url
 var gProxyUrl string
-const APP_VERSION = "v0.0.1-dev.6"
+const APP_VERSION = "v0.0.1-dev.7"
 
 var restlerPath string
 
@@ -398,10 +398,8 @@ func createDefaultFiles(path string) error {
 		return err
 	}
 	defer sampleRequestFile.Close()
-	// TODO: Write sample post request command to this file
-	// read content from the github repo and write to the file
-	// https://raw.githubusercontent.com/shrijan00003/restler/main/restler/requests/posts/posts.post.yaml
-	sampleRequestFileContent, _ := getFileContent("https://raw.githubusercontent.com/shrijan00003/restler/main/restler/requests/posts/posts.post.yaml")
+
+	sampleRequestFileContent, _ := getFileContent("https://raw.githubusercontent.com/shrijan00003/restler/main/sample/requests/posts/posts.post.yaml")
 	_, err = sampleRequestFile.WriteString(sampleRequestFileContent)
 	if err != nil {
 		return err
