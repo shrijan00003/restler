@@ -252,7 +252,7 @@ func initRestlerProject() error {
 	}
 	return nil;
 }
-
+// TODO: Will download the sample folder from github repo instead of creating each one one by one
 func executeInitCommand(path string) error {
 	// if path exists, thats it, otherwise ask if user wants to create it 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -276,6 +276,7 @@ func executeInitCommand(path string) error {
 	}
 
 }
+
 
 
 func findDotEnvFile() (string, error) {
@@ -377,7 +378,7 @@ func createDefaultFiles(path string) error {
 	defer defaultFile.Close()
 
 	// default file content on env/default.yaml
-	defaultFileContent := "Name: default"
+	defaultFileContent := "API_URL: https://jsonplaceholder.typicode.com/posts"
 	_, err = defaultFile.WriteString(defaultFileContent)
 	if err != nil {
 		return err
@@ -399,7 +400,8 @@ func createDefaultFiles(path string) error {
 	defer sampleRequestFile.Close()
 	// TODO: Write sample post request command to this file
 	// read content from the github repo and write to the file
-	sampleRequestFileContent := "Name: sample"
+	// https://raw.githubusercontent.com/shrijan00003/restler/main/restler/requests/posts/posts.post.yaml
+	sampleRequestFileContent, _ := getFileContent("https://raw.githubusercontent.com/shrijan00003/restler/main/restler/requests/posts/posts.post.yaml")
 	_, err = sampleRequestFile.WriteString(sampleRequestFileContent)
 	if err != nil {
 		return err
@@ -419,6 +421,24 @@ func createDefaultFiles(path string) error {
 	}
 
 	return nil;
+}
+
+func getFileContent(url string) (string, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to get file content from %s, status code: %d", url, resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	return string(body), nil
 }
 
 // INIT functionality ends here
