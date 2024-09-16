@@ -447,7 +447,7 @@ func restAction(cCtx *cli.Context, actionName ActionName, restlerPath string) er
 		config.Env = envFlag
 		err := loadWithYaml(fmt.Sprintf("%s/env/%s.yaml", restlerPath, envFlag), &env)
 		if err != nil {
-			return fmt.Errorf("[Restler Error]: Environment you have selected is not found in %s/env folder \n", restlerPath)
+			return fmt.Errorf("restler >>[Error]: Environment you have selected is not found in %s/env folder", restlerPath)
 		}
 	}
 
