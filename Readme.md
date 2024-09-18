@@ -22,6 +22,42 @@ curl -s https://raw.githubusercontent.com/shrijan00003/restler/main/install/darw
 curl -s https://raw.githubusercontent.com/shrijan00003/restler/main/install/linux-amd64.sh | bash
 ```
 
+## Getting Started
+
+## Project Initialization and Structure
+
+**1. Initialization using `restler init`:**
+
+- **Usage:** Run `restler init` in your terminal.
+- **Prompt:** You'll be prompted to enter the desired project name.
+- **Example:** If you enter `collection`, a folder named `collection` will be created in your current directory. This folder includes default files and subfolders for your API collection.
+- **Configuration:**
+  - The `.env` file will be created with `RESTLER_PATH=collection` to specify the project directory.
+  - The `.gitignore` file will be updated to ignore environment and response files from version control.
+
+**2. Manual Project Structure Creation:**
+
+- **API Collection Folder:** Create a folder for your API collection. The default name is `restler`, but you can choose a different name.
+- **Request Folder Structure:**
+  - Create a subfolder named `requests` inside the API collection folder.
+  - Within the `requests` folder, create subfolders for each API request (e.g., `requests/posts`).
+  - Inside each request subfolder, create a YAML file with the extension corresponding to the HTTP method:
+    - `.<http-method>.yaml` (e.g., `posts.post.yaml` for a POST request or `posts.get.yaml` for a GET request).
+- **Environment Variables (Optional):**
+  - Create an `env` folder inside the API collection folder.
+  - Within the `env` folder, create a YAML file for environment variables (e.g., `env/default.yaml`).
+  - This allows you to define and use environment variables in your API requests.
+- **Configuration (Optional):**
+  - A `config.yaml` file can be created in the API collection folder to store configurations like the default environment.
+- **Runtime Environment Variable:**
+  - To change the project directory at runtime, set the `RESTLER_PATH` environment variable.
+  - Example: `export RESTLER_PATH=app-prefix-collection`
+- **Running Requests:**
+  - Use the `restler` command followed by the HTTP method and request name to execute the desired request.
+  - Example: `restler p posts` executes a POST request defined in `posts.post.yaml`, while `restler g posts` executes a GET request from `posts.get.yaml`.
+
+This approach allows for a more customized project structure and configuration for your specific needs.
+
 ## User Guide
 
 1. Create a folder for the API collection, default is `restler`.
