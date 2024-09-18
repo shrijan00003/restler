@@ -91,12 +91,29 @@ func main() {
 				},
 			},
 			{
+				Name: "create",
+				Aliases: []string{"c"},
+				Usage: "Create restler structure",
+				Subcommands: []*cli.Command{
+					{
+						Name: "collection",
+						Aliases: []string{"c"},
+						Usage: "Create collection",
+						Action: func(cCtx *cli.Context) error {
+							initialize(cCtx)
+							return createRestlerCollection(cCtx)
+						},
+					},
+				},
+
+			},
+			{
 				Name:    "post",
 				Aliases: []string{"p"},
 				Usage:   "Run post request",
 				Flags:   commonCommandFlags,
 				Action: func(cCtx *cli.Context) error {
-					initialize()
+					initialize(cCtx)
 					return restAction(cCtx, POST, restlerPath)
 				},
 			},
@@ -106,7 +123,7 @@ func main() {
 				Usage:   "Run get request",
 				Flags:   commonCommandFlags,
 				Action: func(cCtx *cli.Context) error {
-					initialize()
+					initialize(cCtx)
 					return restAction(cCtx, GET, restlerPath)
 				},
 			},
@@ -116,7 +133,7 @@ func main() {
 				Usage:   "Run put request",
 				Flags:   commonCommandFlags,
 				Action: func(cCtx *cli.Context) error {
-					initialize()
+					initialize(cCtx)
 					return restAction(cCtx, PUT, restlerPath)
 				},
 			},
@@ -126,7 +143,7 @@ func main() {
 				Usage:   "Run delete request",
 				Flags:   commonCommandFlags,
 				Action: func(cCtx *cli.Context) error {
-					initialize()
+					initialize(cCtx)
 					return restAction(cCtx, DELETE, restlerPath)
 				},
 			},
@@ -136,7 +153,7 @@ func main() {
 				Usage:   "Run patch request",
 				Flags:   commonCommandFlags,
 				Action: func(cCtx *cli.Context) error {
-					initialize()
+					initialize(cCtx)
 					return restAction(cCtx, PATCH, restlerPath)
 				},
 			},
@@ -149,8 +166,40 @@ func main() {
 
 }
 
+// -------------------------
+// Restler create command 
+// -------------------------
+// +++++++++++++++++++++++++
+// create collection
+// +++++++++++++++++++++++++
+func createRestlerCollection(c *cli.Context) error {
+	fmt.Println("[Restler Log]: Creating restler collection", c.Args().First())
+	// collection is basically restler structure
+	// it will have requests, env folders and config.yaml file
+	collectionPath := fmt.Sprintf("%s/%s", restlerPath, c.Args().First())
+	if _, err := os.Stat(collectionPath); os.IsNotExist(err) {
+		err:= os.MkdirAll(collectionPath, 0755)
+		if err != nil {
+			return fmt.Errorf("[error]: Error occurred while creating restler collection: err: %s", err)
+		}
+		err = createDefaultFiles(collectionPath)
+		if err != nil {
+			fmt.Println("[error]: Error occurred while creating default files: ", err)
+			return err;
+		}
+		return nil;
+	}else{
+		fmt.Println("[info]: path exists, ignoring create restler collection")
+	}
+	return nil;
+}
+
+// -------------------------
+
+// -------------------------
 // initialize restler project
-func initialize(){
+// -------------------------
+func initialize(c *cli.Context){
 	// RESTLER_PATH path, where to run command to create api request
 	err := godotenv.Load()
 	if err != nil {
@@ -171,18 +220,35 @@ func initialize(){
 		}
 	}
 
-	// Load configs
-	err = loadWithYaml(fmt.Sprintf("%s/config.yaml", restlerPath), &config)
+	_, reqPath := getReqNamePath(c.Args().First())
+	// Load config from current request collection
+	err = loadWithYaml(fmt.Sprintf("%s/config.yaml", reqPath), &config)
 	if err != nil {
 		fmt.Println("[restler log]:Failed to load config file, using default env, err:", err)
 		config.DefaultConfig()
 	}
 
 	// Load Environment
-	err = loadWithYaml(fmt.Sprintf("%s/env/%s.yaml", restlerPath, config.Env), &env)
+	// TODO: should be able to take env for nested structure
+	// May be merge env from parent folder
+	// For now we will be using env from the current request collection
+	err = loadWithYaml(fmt.Sprintf("%s/env/%s.yaml", reqPath, config.Env), &env)
 	if err != nil {
 		fmt.Printf("[restler Error]: Failed to load environment file! Make sure you have at least default.yaml file in %s/env folder to use environment variables in request!\n", restlerPath)
 	}
+}
+
+func getReqNamePath(req string) (name string, path string) {
+	if strings.Contains(req, "/") {
+		_paths := strings.Split(req, "/")
+		name = _paths[len(_paths)-1]
+		path = fmt.Sprintf("%s/%s", restlerPath, strings.Join(_paths[:len(_paths)-1], "/"))
+		return;
+	}
+
+	name = req
+	path = restlerPath
+	return
 }
 
 // init restler project
@@ -384,7 +450,7 @@ func createDefaultFiles(path string) error {
 	}
 	
 	// create requests folder with sample request
-	requestsPath := fmt.Sprintf("%s/requests/sample", path)
+	requestsPath := fmt.Sprintf("%s/sample", path)
 	err = os.MkdirAll(requestsPath, 0755)
 	if err != nil {
 		return err
@@ -398,6 +464,7 @@ func createDefaultFiles(path string) error {
 	}
 	defer sampleRequestFile.Close()
 
+	// TODO: Make sure to update this as per new structure. 
 	sampleRequestFileContent, _ := getFileContent("https://raw.githubusercontent.com/shrijan00003/restler/main/sample/requests/posts/posts.post.yaml")
 	_, err = sampleRequestFile.WriteString(sampleRequestFileContent)
 	if err != nil {
@@ -453,30 +520,39 @@ const (
 )
 
 func restAction(cCtx *cli.Context, actionName ActionName, restlerPath string) error {
-	var req = cCtx.Args().Get(0)
+	var req = cCtx.Args().First();
 	if req == "" {
-		log.Fatal("[Restler Error]: No request provided! Please provide request name as argument. Request name is the name of the folder in requests folder.")
+		log.Fatal("[Restler Error]: No request provided! Please provide request name as argument.")
 	}
 
 	// update env if env flag is set
+	// TODO: should be able to take env for nested structure
 	envFlag := cCtx.String("env")
 	if envFlag != "" {
 		config.Env = envFlag
 		err := loadWithYaml(fmt.Sprintf("%s/env/%s.yaml", restlerPath, envFlag), &env)
 		if err != nil {
-			return fmt.Errorf("restler >>[Error]: Environment you have selected is not found in %s/env folder", restlerPath)
+			return fmt.Errorf("[error]: Environment you have selected is not found in %s/env folder", restlerPath)
 		}
 	}
 
-	var reqPath = fmt.Sprintf("%s/requests/%s", restlerPath, req)
+
+	var reqPath = fmt.Sprintf("%s/%s", restlerPath, req)
 	if _, err := os.Stat(reqPath); os.IsNotExist(err) {
 		log.Fatal("[Restler Error]: Request directory not found, please check the path. Request Directory Path: ", reqPath)
 	}
 
+	// request can be `restler p posts` - process restler/posts/posts.post.yaml
+	// `restler p ga0/posts` - process restler/ga0/posts/posts.post.yaml
+	// `restler p ga0/auth/auth0/token` - process restler/ga0/auth/auth0/token/token.post.yaml
+	reqName := req
+	if strings.Contains(req, "/") {
+		_paths := strings.Split(req, "/")
+		reqName = _paths[len(_paths)-1]
+	}
+
 	// Note: request support with flag
 	reqFlag := cCtx.String("request")
-
-	reqName := req
 	if reqFlag != "" {
 		reqName = reqFlag
 	}
