@@ -551,6 +551,11 @@ func restAction(cCtx *cli.Context, actionName ActionName, restlerPath string) er
 		reqName = _paths[len(_paths)-1]
 	}
 
+	// support request name with second argument
+	if cCtx.Args().Get(1) != "" {
+		reqName = cCtx.Args().Get(1)
+	}
+
 	// Note: request support with flag
 	reqFlag := cCtx.String("request")
 	if reqFlag != "" {
