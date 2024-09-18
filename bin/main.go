@@ -57,7 +57,7 @@ var env map[string]string
 
 // global proxy url
 var gProxyUrl string
-const APP_VERSION = "v0.0.1-dev.7"
+const APP_VERSION = "v0.0.1-dev."
 
 var restlerPath string
 
@@ -191,7 +191,6 @@ func initialize(){
 type textInputModel struct{
 	textInput textinput.Model
 	err error
-	message string
 }
 
 type (
