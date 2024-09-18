@@ -584,7 +584,7 @@ func restAction(cCtx *cli.Context, actionName ActionName, restlerPath string) er
 		log.Fatal("[Restler error]: ", err)
 	}
 
-	updateEnvPostScript(pReq, pRes, body)
+	updateEnvPostScript(cCtx, pReq, pRes, body)
 
 	outputFilePath := fmt.Sprintf("%s/.%s.%s.res.md", reqPath, reqName, actionName)
 	os.WriteFile(outputFilePath, responseBytes, 0644)
@@ -626,7 +626,7 @@ func headerToMap(header http.Header) map[string]interface{} {
 }
 
 
-func updateEnvPostScript(req *Request, res *http.Response, body []byte){
+func updateEnvPostScript(c*cli.Context,req *Request, res *http.Response, body []byte){
 	if req.After == nil || req.After.Env == nil {
 		return
 	}
@@ -675,7 +675,8 @@ func updateEnvPostScript(req *Request, res *http.Response, body []byte){
 		}
 	}
 
-	envPath := fmt.Sprintf("%s/env/%s.yaml", restlerPath, config.Env)
+	_, reqPath := getReqNamePath(c.Args().First())
+	envPath := fmt.Sprintf("%s/env/%s.yaml", reqPath, config.Env)
 	newEnvMap := convertMap(env)
 	mergeMaps(newEnvMap, convertMap(envBodyValueMap))
 	mergeMaps(newEnvMap, convertMap(envHeaderValueMap))
