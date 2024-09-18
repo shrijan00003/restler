@@ -175,7 +175,7 @@ func main() {
 func createRestlerCollection(c *cli.Context) error {
 	fmt.Println("[Restler Log]: Creating restler collection", c.Args().First())
 	// collection is basically restler structure
-	// it will have requests, env folders and config.yaml file
+	// it will have env folder, config.yaml and sample request
 	collectionPath := fmt.Sprintf("%s/%s", restlerPath, c.Args().First())
 	if _, err := os.Stat(collectionPath); os.IsNotExist(err) {
 		err:= os.MkdirAll(collectionPath, 0755)
