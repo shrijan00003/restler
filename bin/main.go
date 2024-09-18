@@ -57,7 +57,7 @@ var env map[string]string
 
 // global proxy url
 var gProxyUrl string
-const APP_VERSION = "v0.0.1-dev."
+const APP_VERSION = "v0.0.1-dev.7"
 
 var restlerPath string
 
@@ -91,6 +91,22 @@ func main() {
 				},
 			},
 			{
+				Name: "create-collection",
+				Aliases: []string{"cl"},
+				Action: func(cCtx *cli.Context) error {
+					initialize(cCtx)
+					return createRestlerCollection(cCtx)
+				},
+			},
+			{
+				Name: "create-request",
+				Aliases: []string{"cr"},
+				Action: func(cCtx *cli.Context) error {
+					initialize(cCtx)
+					return createRequestFile(cCtx)
+				},
+			},
+			{
 				Name: "create",
 				Aliases: []string{"c"},
 				Usage: "Create restler structure",
@@ -102,6 +118,15 @@ func main() {
 						Action: func(cCtx *cli.Context) error {
 							initialize(cCtx)
 							return createRestlerCollection(cCtx)
+						},
+					},
+					{
+						Name: "request",
+						Aliases: []string{"r"},
+						Usage: "Create request",
+						Action: func(cCtx *cli.Context) error {
+							initialize(cCtx)
+							return createRequestFile(cCtx)
 						},
 					},
 				},
@@ -194,6 +219,104 @@ func createRestlerCollection(c *cli.Context) error {
 	return nil;
 }
 
+// +++++++++++++++++++++++++
+// create request file
+// +++++++++++++++++++++++++
+func createRequestFile(c *cli.Context) error {
+	const samplePostRequestUrl = "https://raw.githubusercontent.com/shrijan00003/restler/main/sample/requests/sample.post.yaml"
+	const sampleGetRequestUrl = "https://raw.githubusercontent.com/shrijan00003/restler/main/sample/requests/sample.get.yaml"
+	const samplePutRequestUrl = "https://raw.githubusercontent.com/shrijan00003/restler/main/sample/requests/sample.put.yaml"
+	const sampleDeleteRequestUrl = "https://raw.githubusercontent.com/shrijan00003/restler/main/sample/requests/sample.delete.yaml"
+	const samplePatchRequestUrl = "https://raw.githubusercontent.com/shrijan00003/restler/main/sample/requests/sample.patch.yaml"
+
+	// user should be able to create request file with action name like `restler c r post`
+	// or they can create request file with path like `restler c r collection1/collection2 post`
+	path := restlerPath;
+	var action string
+	var fileName string
+	argsLen := c.Args().Len()
+	// if no args provided, return error
+	if argsLen == 0 {
+		return errors.New("action name is required (post, get, put, delete, patch)")
+	}
+	// if only one arg provided, it should be action name
+	if argsLen == 1 {
+		action = c.Args().Get(0)
+	}
+
+	// if two args provided, it should be path and action name
+	if argsLen == 2 {
+		path = fmt.Sprintf("%s/%s", restlerPath, c.Args().Get(0))
+		action = c.Args().Get(1)
+	}
+
+	// if three args provided, it should be path, action name and file name
+	if argsLen == 3 {
+		path = fmt.Sprintf("%s/%s", restlerPath, c.Args().Get(0))
+		action = c.Args().Get(1)
+		fileName = c.Args().Get(2)
+	}
+
+	if(strings.Contains(action, "/")){
+		path = fmt.Sprintf("%s/%s", restlerPath, action)
+		action = c.Args().Get(1);
+		if action == "" {
+			return errors.New("action name is required (post, get, put, delete, patch)")
+		}
+		fileName = c.Args().Get(2)
+	}
+
+	if fileName == "" {
+		fileName= "sample"
+	}
+
+	var url string
+	switch action {
+		case "post":
+			url = samplePostRequestUrl
+			return createSampleRequestFile(path, url,fmt.Sprintf("%s.post.yaml", fileName))
+		case "get":
+			url = sampleGetRequestUrl
+			return createSampleRequestFile(path, url, fmt.Sprintf("%s.get.yaml", fileName))
+		case "put":
+			url = samplePutRequestUrl
+			return createSampleRequestFile(path, url, fmt.Sprintf("%s.put.yaml", fileName))
+		case "delete":
+			url = sampleDeleteRequestUrl
+			return createSampleRequestFile(path, url, fmt.Sprintf("%s.delete.yaml", fileName))
+		case "patch":
+			url = samplePatchRequestUrl
+			return createSampleRequestFile(path, url, fmt.Sprintf("%s.patch.yaml", fileName))
+		default:
+			return errors.New("invalid action name, please use one of post, get, put, delete, patch")
+	}
+}
+
+func createSampleRequestFile(path string, url string, fileName string) error {
+	// fetch sample request file from github and save it to path
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to get file content from %s, status code: %d", url, resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	filePath := fmt.Sprintf("%s/%s", path, fileName)
+	err = os.WriteFile(filePath, body, 0644)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
 // -------------------------
 
 // -------------------------
