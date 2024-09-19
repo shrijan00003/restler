@@ -1,5 +1,5 @@
 Name: Get Posts
-URL: "{{API_URL}}"
+URL: "{{API_URL}}/1"
 Method: GET
 
 Headers:

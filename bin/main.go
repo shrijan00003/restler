@@ -57,7 +57,7 @@ var env map[string]string
 
 // global proxy url
 var gProxyUrl string
-const APP_VERSION = "v0.0.1-dev."
+const APP_VERSION = "v0.0.1-dev.7"
 
 var restlerPath string
 
@@ -91,12 +91,54 @@ func main() {
 				},
 			},
 			{
+				Name: "create-collection",
+				Aliases: []string{"cl"},
+				Action: func(cCtx *cli.Context) error {
+					initialize(cCtx)
+					return createRestlerCollection(cCtx)
+				},
+			},
+			{
+				Name: "create-request",
+				Aliases: []string{"cr"},
+				Action: func(cCtx *cli.Context) error {
+					initialize(cCtx)
+					return createRequestFile(cCtx)
+				},
+			},
+			{
+				Name: "create",
+				Aliases: []string{"c"},
+				Usage: "Create restler structure",
+				Subcommands: []*cli.Command{
+					{
+						Name: "collection",
+						Aliases: []string{"c"},
+						Usage: "Create collection",
+						Action: func(cCtx *cli.Context) error {
+							initialize(cCtx)
+							return createRestlerCollection(cCtx)
+						},
+					},
+					{
+						Name: "request",
+						Aliases: []string{"r"},
+						Usage: "Create request",
+						Action: func(cCtx *cli.Context) error {
+							initialize(cCtx)
+							return createRequestFile(cCtx)
+						},
+					},
+				},
+
+			},
+			{
 				Name:    "post",
 				Aliases: []string{"p"},
 				Usage:   "Run post request",
 				Flags:   commonCommandFlags,
 				Action: func(cCtx *cli.Context) error {
-					initialize()
+					initialize(cCtx)
 					return restAction(cCtx, POST, restlerPath)
 				},
 			},
@@ -106,7 +148,7 @@ func main() {
 				Usage:   "Run get request",
 				Flags:   commonCommandFlags,
 				Action: func(cCtx *cli.Context) error {
-					initialize()
+					initialize(cCtx)
 					return restAction(cCtx, GET, restlerPath)
 				},
 			},
@@ -116,7 +158,7 @@ func main() {
 				Usage:   "Run put request",
 				Flags:   commonCommandFlags,
 				Action: func(cCtx *cli.Context) error {
-					initialize()
+					initialize(cCtx)
 					return restAction(cCtx, PUT, restlerPath)
 				},
 			},
@@ -126,7 +168,7 @@ func main() {
 				Usage:   "Run delete request",
 				Flags:   commonCommandFlags,
 				Action: func(cCtx *cli.Context) error {
-					initialize()
+					initialize(cCtx)
 					return restAction(cCtx, DELETE, restlerPath)
 				},
 			},
@@ -136,7 +178,7 @@ func main() {
 				Usage:   "Run patch request",
 				Flags:   commonCommandFlags,
 				Action: func(cCtx *cli.Context) error {
-					initialize()
+					initialize(cCtx)
 					return restAction(cCtx, PATCH, restlerPath)
 				},
 			},
@@ -149,8 +191,138 @@ func main() {
 
 }
 
+// -------------------------
+// Restler create command 
+// -------------------------
+// +++++++++++++++++++++++++
+// create collection
+// +++++++++++++++++++++++++
+func createRestlerCollection(c *cli.Context) error {
+	fmt.Println("[Restler Log]: Creating restler collection", c.Args().First())
+	// collection is basically restler structure
+	// it will have env folder, config.yaml and sample request
+	collectionPath := fmt.Sprintf("%s/%s", restlerPath, c.Args().First())
+	if _, err := os.Stat(collectionPath); os.IsNotExist(err) {
+		err:= os.MkdirAll(collectionPath, 0755)
+		if err != nil {
+			return fmt.Errorf("[error]: Error occurred while creating restler collection: err: %s", err)
+		}
+		err = createDefaultFiles(collectionPath)
+		if err != nil {
+			fmt.Println("[error]: Error occurred while creating default files: ", err)
+			return err;
+		}
+		return nil;
+	}else{
+		fmt.Println("[info]: path exists, ignoring create restler collection")
+	}
+	return nil;
+}
+
+// +++++++++++++++++++++++++
+// create request file
+// +++++++++++++++++++++++++
+func createRequestFile(c *cli.Context) error {
+	const samplePostRequestUrl = "https://raw.githubusercontent.com/shrijan00003/restler/main/sample/requests/sample.post.yaml"
+	const sampleGetRequestUrl = "https://raw.githubusercontent.com/shrijan00003/restler/main/sample/requests/sample.get.yaml"
+	const samplePutRequestUrl = "https://raw.githubusercontent.com/shrijan00003/restler/main/sample/requests/sample.put.yaml"
+	const sampleDeleteRequestUrl = "https://raw.githubusercontent.com/shrijan00003/restler/main/sample/requests/sample.delete.yaml"
+	const samplePatchRequestUrl = "https://raw.githubusercontent.com/shrijan00003/restler/main/sample/requests/sample.patch.yaml"
+
+	// user should be able to create request file with action name like `restler c r post`
+	// or they can create request file with path like `restler c r collection1/collection2 post`
+	path := restlerPath;
+	var action string
+	var fileName string
+	argsLen := c.Args().Len()
+	// if no args provided, return error
+	if argsLen == 0 {
+		return errors.New("action name is required (post, get, put, delete, patch)")
+	}
+	// if only one arg provided, it should be action name
+	if argsLen == 1 {
+		action = c.Args().Get(0)
+	}
+
+	// if two args provided, it should be path and action name
+	if argsLen == 2 {
+		path = fmt.Sprintf("%s/%s", restlerPath, c.Args().Get(0))
+		action = c.Args().Get(1)
+	}
+
+	// if three args provided, it should be path, action name and file name
+	if argsLen == 3 {
+		path = fmt.Sprintf("%s/%s", restlerPath, c.Args().Get(0))
+		action = c.Args().Get(1)
+		fileName = c.Args().Get(2)
+	}
+
+	if(strings.Contains(action, "/")){
+		path = fmt.Sprintf("%s/%s", restlerPath, action)
+		action = c.Args().Get(1);
+		if action == "" {
+			return errors.New("action name is required (post, get, put, delete, patch)")
+		}
+		fileName = c.Args().Get(2)
+	}
+
+	if fileName == "" {
+		fileName= "sample"
+	}
+
+	var url string
+	switch action {
+		case "post":
+			url = samplePostRequestUrl
+			return createSampleRequestFile(path, url,fmt.Sprintf("%s.post.yaml", fileName))
+		case "get":
+			url = sampleGetRequestUrl
+			return createSampleRequestFile(path, url, fmt.Sprintf("%s.get.yaml", fileName))
+		case "put":
+			url = samplePutRequestUrl
+			return createSampleRequestFile(path, url, fmt.Sprintf("%s.put.yaml", fileName))
+		case "delete":
+			url = sampleDeleteRequestUrl
+			return createSampleRequestFile(path, url, fmt.Sprintf("%s.delete.yaml", fileName))
+		case "patch":
+			url = samplePatchRequestUrl
+			return createSampleRequestFile(path, url, fmt.Sprintf("%s.patch.yaml", fileName))
+		default:
+			return errors.New("invalid action name, please use one of post, get, put, delete, patch")
+	}
+}
+
+func createSampleRequestFile(path string, url string, fileName string) error {
+	// fetch sample request file from github and save it to path
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to get file content from %s, status code: %d", url, resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	filePath := fmt.Sprintf("%s/%s", path, fileName)
+	err = os.WriteFile(filePath, body, 0644)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+// -------------------------
+
+// -------------------------
 // initialize restler project
-func initialize(){
+// -------------------------
+func initialize(c *cli.Context){
 	// RESTLER_PATH path, where to run command to create api request
 	err := godotenv.Load()
 	if err != nil {
@@ -171,18 +343,35 @@ func initialize(){
 		}
 	}
 
-	// Load configs
-	err = loadWithYaml(fmt.Sprintf("%s/config.yaml", restlerPath), &config)
+	_, reqPath := getReqNamePath(c.Args().First())
+	// Load config from current request collection
+	err = loadWithYaml(fmt.Sprintf("%s/config.yaml", reqPath), &config)
 	if err != nil {
 		fmt.Println("[restler log]:Failed to load config file, using default env, err:", err)
 		config.DefaultConfig()
 	}
 
 	// Load Environment
-	err = loadWithYaml(fmt.Sprintf("%s/env/%s.yaml", restlerPath, config.Env), &env)
+	// TODO: should be able to take env for nested structure
+	// May be merge env from parent folder
+	// For now we will be using env from the current request collection
+	err = loadWithYaml(fmt.Sprintf("%s/env/%s.yaml", reqPath, config.Env), &env)
 	if err != nil {
 		fmt.Printf("[restler Error]: Failed to load environment file! Make sure you have at least default.yaml file in %s/env folder to use environment variables in request!\n", restlerPath)
 	}
+}
+
+func getReqNamePath(req string) (name string, path string) {
+	if strings.Contains(req, "/") {
+		_paths := strings.Split(req, "/")
+		name = _paths[len(_paths)-1]
+		path = fmt.Sprintf("%s/%s", restlerPath, strings.Join(_paths[:len(_paths)-1], "/"))
+		return;
+	}
+
+	name = req
+	path = restlerPath
+	return
 }
 
 // init restler project
@@ -384,7 +573,7 @@ func createDefaultFiles(path string) error {
 	}
 	
 	// create requests folder with sample request
-	requestsPath := fmt.Sprintf("%s/requests/sample", path)
+	requestsPath := fmt.Sprintf("%s/sample", path)
 	err = os.MkdirAll(requestsPath, 0755)
 	if err != nil {
 		return err
@@ -398,6 +587,7 @@ func createDefaultFiles(path string) error {
 	}
 	defer sampleRequestFile.Close()
 
+	// TODO: Make sure to update this as per new structure. 
 	sampleRequestFileContent, _ := getFileContent("https://raw.githubusercontent.com/shrijan00003/restler/main/sample/requests/posts/posts.post.yaml")
 	_, err = sampleRequestFile.WriteString(sampleRequestFileContent)
 	if err != nil {
@@ -453,30 +643,44 @@ const (
 )
 
 func restAction(cCtx *cli.Context, actionName ActionName, restlerPath string) error {
-	var req = cCtx.Args().Get(0)
+	var req = cCtx.Args().First();
 	if req == "" {
-		log.Fatal("[Restler Error]: No request provided! Please provide request name as argument. Request name is the name of the folder in requests folder.")
+		log.Fatal("[Restler Error]: No request provided! Please provide request name as argument.")
 	}
 
 	// update env if env flag is set
+	// TODO: should be able to take env for nested structure
 	envFlag := cCtx.String("env")
 	if envFlag != "" {
 		config.Env = envFlag
 		err := loadWithYaml(fmt.Sprintf("%s/env/%s.yaml", restlerPath, envFlag), &env)
 		if err != nil {
-			return fmt.Errorf("restler >>[Error]: Environment you have selected is not found in %s/env folder", restlerPath)
+			return fmt.Errorf("[error]: Environment you have selected is not found in %s/env folder", restlerPath)
 		}
 	}
 
-	var reqPath = fmt.Sprintf("%s/requests/%s", restlerPath, req)
+
+	var reqPath = fmt.Sprintf("%s/%s", restlerPath, req)
 	if _, err := os.Stat(reqPath); os.IsNotExist(err) {
 		log.Fatal("[Restler Error]: Request directory not found, please check the path. Request Directory Path: ", reqPath)
 	}
 
+	// request can be `restler p posts` - process restler/posts/posts.post.yaml
+	// `restler p ga0/posts` - process restler/ga0/posts/posts.post.yaml
+	// `restler p ga0/auth/auth0/token` - process restler/ga0/auth/auth0/token/token.post.yaml
+	reqName := req
+	if strings.Contains(req, "/") {
+		_paths := strings.Split(req, "/")
+		reqName = _paths[len(_paths)-1]
+	}
+
+	// support request name with second argument
+	if cCtx.Args().Get(1) != "" {
+		reqName = cCtx.Args().Get(1)
+	}
+
 	// Note: request support with flag
 	reqFlag := cCtx.String("request")
-
-	reqName := req
 	if reqFlag != "" {
 		reqName = reqFlag
 	}
@@ -508,7 +712,7 @@ func restAction(cCtx *cli.Context, actionName ActionName, restlerPath string) er
 		log.Fatal("[Restler error]: ", err)
 	}
 
-	updateEnvPostScript(pReq, pRes, body)
+	updateEnvPostScript(cCtx, pReq, pRes, body)
 
 	outputFilePath := fmt.Sprintf("%s/.%s.%s.res.md", reqPath, reqName, actionName)
 	os.WriteFile(outputFilePath, responseBytes, 0644)
@@ -550,7 +754,7 @@ func headerToMap(header http.Header) map[string]interface{} {
 }
 
 
-func updateEnvPostScript(req *Request, res *http.Response, body []byte){
+func updateEnvPostScript(c*cli.Context,req *Request, res *http.Response, body []byte){
 	if req.After == nil || req.After.Env == nil {
 		return
 	}
@@ -599,7 +803,8 @@ func updateEnvPostScript(req *Request, res *http.Response, body []byte){
 		}
 	}
 
-	envPath := fmt.Sprintf("%s/env/%s.yaml", restlerPath, config.Env)
+	_, reqPath := getReqNamePath(c.Args().First())
+	envPath := fmt.Sprintf("%s/env/%s.yaml", reqPath, config.Env)
 	newEnvMap := convertMap(env)
 	mergeMaps(newEnvMap, convertMap(envBodyValueMap))
 	mergeMaps(newEnvMap, convertMap(envHeaderValueMap))
