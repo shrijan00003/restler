@@ -25,15 +25,15 @@ import (
 )
 
 type Request struct {
-	Name       string            `yaml:"Name"`
-	URL        string            `yaml:"URL"`
-	Method     string            `yaml:"Method"`
-	Headers    map[string]string `yaml:"Headers"`
-	Body       interface{}       `yaml:"Body"`
-	After      *After            `yaml:"After"`	
+	Name    string            `yaml:"Name"`
+	URL     string            `yaml:"URL"`
+	Method  string            `yaml:"Method"`
+	Headers map[string]string `yaml:"Headers"`
+	Body    interface{}       `yaml:"Body"`
+	After   *After            `yaml:"After"`
 }
 
-type After struct{
+type After struct {
 	Env map[string]string `yaml:"Env"`
 }
 
@@ -57,11 +57,10 @@ var env map[string]string
 
 // global proxy url
 var gProxyUrl string
+
 const APP_VERSION = "v0.0.1-dev.7"
 
 var restlerPath string
-
-
 
 func main() {
 	commonCommandFlags := []cli.Flag{
@@ -83,15 +82,15 @@ func main() {
 		Version: APP_VERSION,
 		Commands: []*cli.Command{
 			{
-				Name: "init",
+				Name:    "init",
 				Aliases: []string{"i"},
-				Usage: "Initialize restler project",
+				Usage:   "Initialize restler project",
 				Action: func(cCtx *cli.Context) error {
 					return initRestlerProject()
 				},
 			},
 			{
-				Name: "create-collection",
+				Name:    "create-collection",
 				Aliases: []string{"cl"},
 				Action: func(cCtx *cli.Context) error {
 					initialize(cCtx)
@@ -99,7 +98,7 @@ func main() {
 				},
 			},
 			{
-				Name: "create-request",
+				Name:    "create-request",
 				Aliases: []string{"cr"},
 				Action: func(cCtx *cli.Context) error {
 					initialize(cCtx)
@@ -107,30 +106,29 @@ func main() {
 				},
 			},
 			{
-				Name: "create",
+				Name:    "create",
 				Aliases: []string{"c"},
-				Usage: "Create restler structure",
+				Usage:   "Create restler structure",
 				Subcommands: []*cli.Command{
 					{
-						Name: "collection",
+						Name:    "collection",
 						Aliases: []string{"c"},
-						Usage: "Create collection",
+						Usage:   "Create collection",
 						Action: func(cCtx *cli.Context) error {
 							initialize(cCtx)
 							return createRestlerCollection(cCtx)
 						},
 					},
 					{
-						Name: "request",
+						Name:    "request",
 						Aliases: []string{"r"},
-						Usage: "Create request",
+						Usage:   "Create request",
 						Action: func(cCtx *cli.Context) error {
 							initialize(cCtx)
 							return createRequestFile(cCtx)
 						},
 					},
 				},
-
 			},
 			{
 				Name:    "post",
@@ -192,7 +190,7 @@ func main() {
 }
 
 // -------------------------
-// Restler create command 
+// Restler create command
 // -------------------------
 // +++++++++++++++++++++++++
 // create collection
@@ -203,20 +201,20 @@ func createRestlerCollection(c *cli.Context) error {
 	// it will have env folder, config.yaml and sample request
 	collectionPath := fmt.Sprintf("%s/%s", restlerPath, c.Args().First())
 	if _, err := os.Stat(collectionPath); os.IsNotExist(err) {
-		err:= os.MkdirAll(collectionPath, 0755)
+		err := os.MkdirAll(collectionPath, 0755)
 		if err != nil {
 			return fmt.Errorf("[error]: Error occurred while creating restler collection: err: %s", err)
 		}
 		err = createDefaultFiles(collectionPath)
 		if err != nil {
 			fmt.Println("[error]: Error occurred while creating default files: ", err)
-			return err;
+			return err
 		}
-		return nil;
-	}else{
+		return nil
+	} else {
 		fmt.Println("[info]: path exists, ignoring create restler collection")
 	}
-	return nil;
+	return nil
 }
 
 // +++++++++++++++++++++++++
@@ -231,7 +229,7 @@ func createRequestFile(c *cli.Context) error {
 
 	// user should be able to create request file with action name like `restler c r post`
 	// or they can create request file with path like `restler c r collection1/collection2 post`
-	path := restlerPath;
+	path := restlerPath
 	var action string
 	var fileName string
 	argsLen := c.Args().Len()
@@ -257,9 +255,9 @@ func createRequestFile(c *cli.Context) error {
 		fileName = c.Args().Get(2)
 	}
 
-	if(strings.Contains(action, "/")){
+	if strings.Contains(action, "/") {
 		path = fmt.Sprintf("%s/%s", restlerPath, action)
-		action = c.Args().Get(1);
+		action = c.Args().Get(1)
 		if action == "" {
 			return errors.New("action name is required (post, get, put, delete, patch)")
 		}
@@ -267,28 +265,28 @@ func createRequestFile(c *cli.Context) error {
 	}
 
 	if fileName == "" {
-		fileName= "sample"
+		fileName = "sample"
 	}
 
 	var url string
 	switch action {
-		case "post":
-			url = samplePostRequestUrl
-			return createSampleRequestFile(path, url,fmt.Sprintf("%s.post.yaml", fileName))
-		case "get":
-			url = sampleGetRequestUrl
-			return createSampleRequestFile(path, url, fmt.Sprintf("%s.get.yaml", fileName))
-		case "put":
-			url = samplePutRequestUrl
-			return createSampleRequestFile(path, url, fmt.Sprintf("%s.put.yaml", fileName))
-		case "delete":
-			url = sampleDeleteRequestUrl
-			return createSampleRequestFile(path, url, fmt.Sprintf("%s.delete.yaml", fileName))
-		case "patch":
-			url = samplePatchRequestUrl
-			return createSampleRequestFile(path, url, fmt.Sprintf("%s.patch.yaml", fileName))
-		default:
-			return errors.New("invalid action name, please use one of post, get, put, delete, patch")
+	case "post":
+		url = samplePostRequestUrl
+		return createSampleRequestFile(path, url, fmt.Sprintf("%s.post.yaml", fileName))
+	case "get":
+		url = sampleGetRequestUrl
+		return createSampleRequestFile(path, url, fmt.Sprintf("%s.get.yaml", fileName))
+	case "put":
+		url = samplePutRequestUrl
+		return createSampleRequestFile(path, url, fmt.Sprintf("%s.put.yaml", fileName))
+	case "delete":
+		url = sampleDeleteRequestUrl
+		return createSampleRequestFile(path, url, fmt.Sprintf("%s.delete.yaml", fileName))
+	case "patch":
+		url = samplePatchRequestUrl
+		return createSampleRequestFile(path, url, fmt.Sprintf("%s.patch.yaml", fileName))
+	default:
+		return errors.New("invalid action name, please use one of post, get, put, delete, patch")
 	}
 }
 
@@ -317,12 +315,13 @@ func createSampleRequestFile(path string, url string, fileName string) error {
 
 	return nil
 }
+
 // -------------------------
 
 // -------------------------
 // initialize restler project
 // -------------------------
-func initialize(c *cli.Context){
+func initialize(c *cli.Context) {
 	// RESTLER_PATH path, where to run command to create api request
 	err := godotenv.Load()
 	if err != nil {
@@ -366,7 +365,7 @@ func getReqNamePath(req string) (name string, path string) {
 		_paths := strings.Split(req, "/")
 		name = _paths[len(_paths)-1]
 		path = fmt.Sprintf("%s/%s", restlerPath, strings.Join(_paths[:len(_paths)-1], "/"))
-		return;
+		return
 	}
 
 	name = req
@@ -375,11 +374,11 @@ func getReqNamePath(req string) (name string, path string) {
 }
 
 // init restler project
-// init command should be able to set the RESTLER_PATH in .env file which will be loaded by restler. 
-// it should be creating default files and folders in the path. 
-type textInputModel struct{
+// init command should be able to set the RESTLER_PATH in .env file which will be loaded by restler.
+// it should be creating default files and folders in the path.
+type textInputModel struct {
 	textInput textinput.Model
-	err error
+	err       error
 }
 
 type (
@@ -411,7 +410,7 @@ func (m textInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
-		
+
 		case tea.KeyEnter:
 			executeInitCommand(m.textInput.Value())
 			return m, tea.Quit
@@ -433,39 +432,38 @@ func (m textInputModel) View() string {
 	) + "\n"
 }
 func initRestlerProject() error {
-	p:= tea.NewProgram(initialTextInputModel())
+	p := tea.NewProgram(initialTextInputModel())
 	if _, err := p.Run(); err != nil {
 		fmt.Println("Error occurred while initializing restler project: ", err)
-		return err;
+		return err
 	}
-	return nil;
+	return nil
 }
+
 // TODO: Will download the sample folder from github repo instead of creating each one one by one
 func executeInitCommand(path string) error {
-	// if path exists, thats it, otherwise ask if user wants to create it 
+	// if path exists, thats it, otherwise ask if user wants to create it
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		fmt.Println("[log]: Path doesn't exist, creating restler project in: ", path)
-		err:= os.MkdirAll(path, 0755)
+		err := os.MkdirAll(path, 0755)
 		if err != nil {
 			fmt.Println("[error]: Error occurred while creating restler project: ", err)
-			return err;
+			return err
 		}
 		err = createDefaultFiles(path)
 		if err != nil {
 			fmt.Println("[error]: Error occurred while creating default files: ", err)
-			return err;
+			return err
 		}
-		updateEnv(path);
-		return nil;
-	}else{
+		updateEnv(path)
+		return nil
+	} else {
 		fmt.Println("[info]: path exists, updating RESTLER_PATH env: ")
-		updateEnv(path);
-		return nil;
+		updateEnv(path)
+		return nil
 	}
 
 }
-
-
 
 func findDotEnvFile() (string, error) {
 	dotEnvPath := ".env"
@@ -477,16 +475,15 @@ func findDotEnvFile() (string, error) {
 			return "", err
 		}
 	}
-	
+
 	return dotEnvPath, nil
 }
-
 
 func updateEnv(path string) error {
 	dotEnvPath, err := findDotEnvFile()
 	if err != nil {
 		fmt.Println("[log]: env file .env or .env.local not found, creating .env file :")
-		if _, err:= os.Create(".env") ; err!= nil {
+		if _, err := os.Create(".env"); err != nil {
 			fmt.Println("[error]: Error occurred while creating .env file: ", err)
 			return err
 		}
@@ -497,18 +494,18 @@ func updateEnv(path string) error {
 }
 
 func updateDotEnvFile(envPath, restlerPath string) error {
-   file,err := os.Open(envPath)
-   if err != nil {
+	file, err := os.Open(envPath)
+	if err != nil {
 		fmt.Println("[error]: Error occurred while opening .env file: ", err)
 		return err
-   }
-   defer file.Close()
+	}
+	defer file.Close()
 
-   // read the file line by line
-   scanner := bufio.NewScanner(file)
-   var lines []string
-   var restlerPathFound bool
-   for scanner.Scan() {
+	// read the file line by line
+	scanner := bufio.NewScanner(file)
+	var lines []string
+	var restlerPathFound bool
+	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.HasPrefix(line, "RESTLER_PATH") {
 			// update RESTLER_PATH in .env file
@@ -516,23 +513,23 @@ func updateDotEnvFile(envPath, restlerPath string) error {
 			line = fmt.Sprintf("RESTLER_PATH=%s", restlerPath)
 		}
 		lines = append(lines, line)
-   }
+	}
 
-   if !restlerPathFound {
-	   lines = append(lines, "RESTLER_PATH="+restlerPath)
-   }
+	if !restlerPathFound {
+		lines = append(lines, "RESTLER_PATH="+restlerPath)
+	}
 
 	if err := scanner.Err(); err != nil {
 		fmt.Printf("[error]: Error occurred while reading %s file: %s\n", envPath, err)
 		return err
 	}
 
-   err = os.WriteFile(envPath, []byte(strings.Join(lines, "\n")), 0644)
-   if err != nil {
+	err = os.WriteFile(envPath, []byte(strings.Join(lines, "\n")), 0644)
+	if err != nil {
 		fmt.Printf("[error]: Error occurred while updating %s file: %s\n", envPath, err)
 		return err
 	}
-	return nil;
+	return nil
 }
 
 func createDefaultFiles(path string) error {
@@ -543,7 +540,7 @@ func createDefaultFiles(path string) error {
 		return err
 	}
 	defer configFile.Close()
-	
+
 	// write default environment default to config file
 	configFileContent := "Env: default"
 	_, err = configFile.WriteString(configFileContent)
@@ -571,7 +568,7 @@ func createDefaultFiles(path string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	// create requests folder with sample request
 	requestsPath := fmt.Sprintf("%s/sample", path)
 	err = os.MkdirAll(requestsPath, 0755)
@@ -587,7 +584,7 @@ func createDefaultFiles(path string) error {
 	}
 	defer sampleRequestFile.Close()
 
-	// TODO: Make sure to update this as per new structure. 
+	// TODO: Make sure to update this as per new structure.
 	sampleRequestFileContent, _ := getFileContent("https://raw.githubusercontent.com/shrijan00003/restler/main/sample/requests/posts/posts.post.yaml")
 	_, err = sampleRequestFile.WriteString(sampleRequestFileContent)
 	if err != nil {
@@ -607,7 +604,7 @@ func createDefaultFiles(path string) error {
 		return err
 	}
 
-	return nil;
+	return nil
 }
 
 func getFileContent(url string) (string, error) {
@@ -643,7 +640,7 @@ const (
 )
 
 func restAction(cCtx *cli.Context, actionName ActionName, restlerPath string) error {
-	var req = cCtx.Args().First();
+	var req = cCtx.Args().First()
 	if req == "" {
 		log.Fatal("[Restler Error]: No request provided! Please provide request name as argument.")
 	}
@@ -658,7 +655,6 @@ func restAction(cCtx *cli.Context, actionName ActionName, restlerPath string) er
 			return fmt.Errorf("[error]: Environment you have selected is not found in %s/env folder", restlerPath)
 		}
 	}
-
 
 	var reqPath = fmt.Sprintf("%s/%s", restlerPath, req)
 	if _, err := os.Stat(reqPath); os.IsNotExist(err) {
@@ -720,41 +716,40 @@ func restAction(cCtx *cli.Context, actionName ActionName, restlerPath string) er
 }
 
 func getNestedValue(data map[string]interface{}, keys string) (interface{}, bool) {
-    parts := strings.Split(keys, "][")
-    parts[0] = strings.TrimPrefix(parts[0], "[")
-    parts[len(parts)-1] = strings.TrimSuffix(parts[len(parts)-1], "]")
+	parts := strings.Split(keys, "][")
+	parts[0] = strings.TrimPrefix(parts[0], "[")
+	parts[len(parts)-1] = strings.TrimSuffix(parts[len(parts)-1], "]")
 
-    var current interface{} = data
-    for _, key := range parts {
-        if m, ok := current.(map[string]interface{}); ok {
-            current = m[key]
-        } else if a, ok := current.([]interface{}); ok {
-            index, err := strconv.Atoi(key)
-            if err != nil || index < 0 || index >= len(a) {
-                return nil, false
-            }
-            current = a[index]
-        } else {
+	var current interface{} = data
+	for _, key := range parts {
+		if m, ok := current.(map[string]interface{}); ok {
+			current = m[key]
+		} else if a, ok := current.([]interface{}); ok {
+			index, err := strconv.Atoi(key)
+			if err != nil || index < 0 || index >= len(a) {
+				return nil, false
+			}
+			current = a[index]
+		} else {
 			return nil, false
 		}
-    }
-    return current, true
+	}
+	return current, true
 }
 
 func headerToMap(header http.Header) map[string]interface{} {
-    result := make(map[string]interface{})
-    for key, values := range header {
-        if len(values) == 1 {
-            result[key] = values[0]
-        } else {
-            result[key] = values
-        }
-    }
-    return result
+	result := make(map[string]interface{})
+	for key, values := range header {
+		if len(values) == 1 {
+			result[key] = values[0]
+		} else {
+			result[key] = values
+		}
+	}
+	return result
 }
 
-
-func updateEnvPostScript(c*cli.Context,req *Request, res *http.Response, body []byte){
+func updateEnvPostScript(c *cli.Context, req *Request, res *http.Response, body []byte) {
 	if req.After == nil || req.After.Env == nil {
 		return
 	}
@@ -772,7 +767,7 @@ func updateEnvPostScript(c*cli.Context,req *Request, res *http.Response, body []
 			}
 		}
 	}
-	
+
 	var envBodyValueMap = map[string]string{}
 	var envHeaderValueMap = map[string]string{}
 
@@ -782,11 +777,11 @@ func updateEnvPostScript(c*cli.Context,req *Request, res *http.Response, body []
 			err := json.Unmarshal(body, &jsonBody)
 			if err != nil {
 				fmt.Println("[Update Env Log ] Body is not in JSON format: ", err)
-				return;
+				return
 			}
 			if val, ok := getNestedValue(jsonBody, envBodyKey); ok {
 				envBodyValueMap[envKey] = fmt.Sprintf("%v", val)
-			}else{
+			} else {
 				fmt.Println("[Update Env Log] Value not found for key: ", envBodyKey)
 				envBodyValueMap[envKey] = ""
 			}
@@ -816,38 +811,34 @@ func updateEnvPostScript(c*cli.Context,req *Request, res *http.Response, body []
 }
 
 func writeYAMLFile(filename string, data map[string]interface{}) error {
-    out, err := yaml.Marshal(data)
-    if err != nil {
-        return err
-    }
-    return os.WriteFile(filename, out, 0644)
+	out, err := yaml.Marshal(data)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filename, out, 0644)
 }
 
 func convertMap[K comparable, V any](m map[K]V) map[string]interface{} {
-    result := make(map[string]interface{})
-    for k, v := range m {
-        result[fmt.Sprintf("%v", k)] = v
-    }
-    return result
+	result := make(map[string]interface{})
+	for k, v := range m {
+		result[fmt.Sprintf("%v", k)] = v
+	}
+	return result
 }
-
 
 func mergeMaps[K comparable](dest, src map[K]interface{}) {
-    for key, value := range src {
-        if v, ok := value.(map[K]interface{}); ok {
-            if dv, ok := dest[key].(map[K]interface{}); ok {
-                mergeMaps(dv, v)
-                continue
-            }
-        }
-        dest[key] = value
-    }
+	for key, value := range src {
+		if v, ok := value.(map[K]interface{}); ok {
+			if dv, ok := dest[key].(map[K]interface{}); ok {
+				mergeMaps(dv, v)
+				continue
+			}
+		}
+		dest[key] = value
+	}
 }
 
-
 func prepareResponse(req *Request, res *http.Response, body []byte) ([]byte, error) {
-
-
 
 	var buffer bytes.Buffer
 	buffer.WriteString(fmt.Sprintf("# Response For: %s \n", req.Name))
@@ -942,6 +933,7 @@ func parseRequest(requestPath string) (*Request, error) {
 		return nil, err
 	}
 	defer file.Close()
+
 	rawRequestContent, err := io.ReadAll(file)
 	if err != nil {
 		fmt.Println("Error reading file", err)
@@ -976,11 +968,6 @@ func validateRequest(r *Request) error {
 	}
 	if r.Headers == nil {
 		return errors.New("Request Headers is required")
-	}
-	var isBodyOptional = r.Method == "GET" || r.Method == "OPTIONS" || r.Method == "DELETE"
-
-	if !isBodyOptional && r.Body == nil {
-		return errors.New("Request Body is required for non-GET, OPTIONS, and DELETE requests")
 	}
 
 	return nil
