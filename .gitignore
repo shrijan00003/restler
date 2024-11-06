@@ -7,3 +7,9 @@
 
 
 restler
+# Ignore response file
+**/.*.res.md
+
+# Ignore .env file
+.env
+.env.local

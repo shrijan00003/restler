@@ -70,6 +70,103 @@ This approach allows for a more customized project structure and configuration f
 8. Check the output files in `requests/<request-name>` folder. For example `requests/posts/.<request-name>.post.res.md` for post response and `requests/posts/.get.res.txt` for get request response.
 9. for other supports please check the [TODO](./todos/Todo.md) file.
 
+## Create Collection and Requeset
+### Create Collection
+### Restler CLI User Documentation
+
+#### Command: `restler cc collection-name`
+
+This command is used to create a new Restler collection, which is a structured directory containing the necessary files and folders for Restler operations.
+
+#### Usage
+
+```bash
+restler cc <collection-name>
+OR
+restler c c <collection-name>
+OR
+restler create collection <collection-name>
+OR
+restler create-collection <collection-name>
+```
+
+- **`<collection-name>`**: The name of the collection you want to create. This will be the name of the directory containing the collection files.
+
+#### Example
+
+```bash
+restler cc my-collection
+```
+
+This will create a directory named `my-collection` with the necessary Restler structure inside.
+
+#### Directory Structure
+
+The created collection will have the following structure:
+
+```
+my-collection/
+├── env/
+│   ├── default.yaml
+├── config.yaml
+├── sample/
+│   ├── sample.post.yaml
+```
+
+- **`env/`**: Directory containing environment files.
+- **`config.yaml`**: Configuration file for the collection.
+- **`sample/`**: Sample directory with sample request files.
+
+## Create Request
+
+#### Command: `restler create request`
+
+This command is used to create a new request file for Restler.
+
+### Usage
+
+```bash
+restler create request [<path>/]<action> [<filename>]
+```
+
+- **`<path>`**: (Optional) The path where the request file will be created.
+- **`<action>`**: The HTTP action for the request file (e.g., post, get, put, delete, patch).
+- **`<filename>`**: (Optional) The name of the request file. If not provided, defaults to `sample`.
+
+#### Examples
+
+1. **Create a request file with an action name**:
+   ```bash
+   restler cr post
+   OR
+   restler create request post
+   ```
+
+   This creates a sample request file at the root of the Restler path with the name `sample.post.yaml`.
+
+2. **Create a request file with a specified path and action**:
+   ```bash
+   restler cr collection1/collection2 post
+   ```
+
+   This creates a sample request file at `collection1/collection2` with the name `sample.post.yaml`.
+
+3. **Create a request file with a specified path, action, and filename**:
+   ```bash
+   restler cr collection1/collection2 post article
+   ```
+
+   This creates a request file at `collection1/collection2` with the name `article.post.yaml`.
+
+## Different ways of running Requests
+```bash
+restler p posts:  <RESTLER_PATH>/posts/posts.post.yaml
+restler p collection-name/posts: <RESTLER_PATH>/collection-name/posts.post.yaml
+restler p collection-name/auth/token: <RESTLER_PATH>/collection-name/auth/token/token.post.yaml
+restler p collection-name/auth/token token-v2: <RESTLER_PATH>/collection-name/auth/token/token-v2.post.yaml
+
+```
+
 ## Commands Available
 
 - `restler post <request-name>` or `restler p <request-name>`
