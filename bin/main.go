@@ -25,6 +25,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const samplePostRequestUrl = "https://raw.githubusercontent.com/shrijan00003/restler/main/sample/requests/sample.post.yaml"
+const sampleGetRequestUrl = "https://raw.githubusercontent.com/shrijan00003/restler/main/sample/requests/sample.get.yaml"
+const samplePutRequestUrl = "https://raw.githubusercontent.com/shrijan00003/restler/main/sample/requests/sample.put.yaml"
+const sampleDeleteRequestUrl = "https://raw.githubusercontent.com/shrijan00003/restler/main/sample/requests/sample.delete.yaml"
+const samplePatchRequestUrl = "https://raw.githubusercontent.com/shrijan00003/restler/main/sample/requests/sample.patch.yaml"
+
 type Request struct {
 	Name    string            `yaml:"Name"`
 	URL     string            `yaml:"URL"`
@@ -102,7 +108,7 @@ func main() {
 				Name:    "create-request",
 				Aliases: []string{"cr"},
 				Action: func(cCtx *cli.Context) error {
-					initialize(cCtx)
+					intializeCreatorAction()
 					return createRequestFile(cCtx)
 				},
 			},
@@ -116,7 +122,7 @@ func main() {
 						Aliases: []string{"c"},
 						Usage:   "Create collection",
 						Action: func(cCtx *cli.Context) error {
-							initialize(cCtx)
+							intializeCreatorAction()
 							return createRestlerCollection(cCtx)
 						},
 					},
@@ -125,7 +131,7 @@ func main() {
 						Aliases: []string{"r"},
 						Usage:   "Create request",
 						Action: func(cCtx *cli.Context) error {
-							initialize(cCtx)
+							intializeCreatorAction()
 							return createRequestFile(cCtx)
 						},
 					},
@@ -222,11 +228,6 @@ func createRestlerCollection(c *cli.Context) error {
 // create request file
 // +++++++++++++++++++++++++
 func createRequestFile(c *cli.Context) error {
-	const samplePostRequestUrl = "https://raw.githubusercontent.com/shrijan00003/restler/main/sample/requests/sample.post.yaml"
-	const sampleGetRequestUrl = "https://raw.githubusercontent.com/shrijan00003/restler/main/sample/requests/sample.get.yaml"
-	const samplePutRequestUrl = "https://raw.githubusercontent.com/shrijan00003/restler/main/sample/requests/sample.put.yaml"
-	const sampleDeleteRequestUrl = "https://raw.githubusercontent.com/shrijan00003/restler/main/sample/requests/sample.delete.yaml"
-	const samplePatchRequestUrl = "https://raw.githubusercontent.com/shrijan00003/restler/main/sample/requests/sample.patch.yaml"
 
 	// user should be able to create request file with action name like `restler c r post`
 	// or they can create request file with path like `restler c r collection1/collection2 post`
@@ -238,7 +239,8 @@ func createRequestFile(c *cli.Context) error {
 	if argsLen == 0 {
 		return errors.New("action name is required (post, get, put, delete, patch)")
 	}
-	// if only one arg provided, it should be action name
+	// if only one arg provided, it should be action name and it should create sample request file
+	// with action provided eg. <restler_path>/sample.post.yaml
 	if argsLen == 1 {
 		action = c.Args().Get(0)
 	}
@@ -256,6 +258,7 @@ func createRequestFile(c *cli.Context) error {
 		fileName = c.Args().Get(2)
 	}
 
+	// // if restler cr col1/col2 post article
 	if strings.Contains(action, "/") {
 		path = fmt.Sprintf("%s/%s", restlerPath, action)
 		action = c.Args().Get(1)
@@ -317,6 +320,33 @@ func createSampleRequestFile(path string, url string, fileName string) error {
 	return nil
 }
 
+func intializeRestlerPath() {
+	restlerPath = os.Getenv("RESTLER_PATH")
+	if restlerPath == "" {
+		fmt.Println("[restler Log]:RESTLER_PATH is not set, defaulting to restler")
+		restlerPath = "restler"
+	}
+}
+
+// Load proxy from env supports both HTTPS_PROXY and HTTP_PROXY
+func intializeProxy() {
+	gProxyUrl = os.Getenv("HTTPS_PROXY")
+	if gProxyUrl == "" {
+		gProxyUrl = os.Getenv("HTTP_PROXY")
+		if gProxyUrl == "" {
+			gProxyUrl = ""
+		}
+	}
+}
+
+func intializeCreatorAction() {
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Println("[Restler Log]: Error loading .env file: ", err)
+	}
+	intializeRestlerPath()
+}
+
 // -------------------------
 
 // -------------------------
@@ -328,20 +358,8 @@ func initialize(c *cli.Context) {
 	if err != nil {
 		fmt.Println("[Restler Log]: Error loading .env file: ", err)
 	}
-	restlerPath = os.Getenv("RESTLER_PATH")
-	if restlerPath == "" {
-		fmt.Println("[restler Log]:RESTLER_PATH is not set, defaulting to restler")
-		restlerPath = "restler"
-	}
-
-	// Load proxy from env supports both HTTPS_PROXY and HTTP_PROXY
-	gProxyUrl = os.Getenv("HTTPS_PROXY")
-	if gProxyUrl == "" {
-		gProxyUrl = os.Getenv("HTTP_PROXY")
-		if gProxyUrl == "" {
-			gProxyUrl = ""
-		}
-	}
+	intializeRestlerPath()
+	intializeProxy()
 
 	_, reqPath := getReqNamePath(c.Args().First())
 	// Load config from current request collection
@@ -564,6 +582,7 @@ func createDefaultFiles(path string) error {
 	defer defaultFile.Close()
 
 	// default file content on env/default.yaml
+	// TODO: Update from the sample file
 	defaultFileContent := "API_URL: https://jsonplaceholder.typicode.com/posts"
 	_, err = defaultFile.WriteString(defaultFileContent)
 	if err != nil {
@@ -585,8 +604,7 @@ func createDefaultFiles(path string) error {
 	}
 	defer sampleRequestFile.Close()
 
-	// TODO: Make sure to update this as per new structure.
-	sampleRequestFileContent, _ := getFileContent("https://raw.githubusercontent.com/shrijan00003/restler/main/sample/requests/posts/posts.post.yaml")
+	sampleRequestFileContent, _ := getFileContent(samplePostRequestUrl)
 	_, err = sampleRequestFile.WriteString(sampleRequestFileContent)
 	if err != nil {
 		return err
@@ -598,6 +616,8 @@ func createDefaultFiles(path string) error {
 		return err
 	}
 	defer file.Close()
+
+	// TODO: update only if its not available on the .gitignore
 	fileContent := "# Ignore response file\n**/.*.res.md\n\n# Ignore .env file\n.env\n.env.local\n"
 	_, err = file.WriteString(fileContent)
 	if err != nil {
@@ -662,9 +682,10 @@ func restAction(cCtx *cli.Context, actionName ActionName, restlerPath string) er
 		log.Fatal("[Restler Error]: Request directory not found, please check the path. Request Directory Path: ", reqPath)
 	}
 
-	// request can be `restler p posts` - process restler/posts/posts.post.yaml
-	// `restler p ga0/posts` - process restler/ga0/posts/posts.post.yaml
-	// `restler p ga0/auth/auth0/token` - process restler/ga0/auth/auth0/token/token.post.yaml
+	// `restler p posts` - process <restler_path>/posts/posts.post.yaml
+	// `restler p ga0/posts` - process <restler_path>/ga0/posts/posts.post.yaml
+	// `restler p ga0/auth/auth0/token` - process <restler_path>/ga0/auth/auth0/token/token.post.yaml
+
 	reqName := req
 	if strings.Contains(req, "/") {
 		_paths := strings.Split(req, "/")
