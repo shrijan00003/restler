@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -91,7 +92,7 @@ func main() {
 			},
 			{
 				Name:    "create-collection",
-				Aliases: []string{"cl"},
+				Aliases: []string{"cc"},
 				Action: func(cCtx *cli.Context) error {
 					initialize(cCtx)
 					return createRestlerCollection(cCtx)
@@ -1011,28 +1012,66 @@ func processRequest(req *Request) (*http.Response, error) {
 			client = &http.Client{}
 		}
 	}
-
-	var _bytes []byte
-	var err error
-	if req.Body != nil {
-		_bytes, err = json.Marshal(req.Body)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing request body %s", err)
+	// +++++++++++++++++++++++++++++++++++++++++++++
+	// support for application/x-www-form-urlencoded
+	// +++++++++++++++++++++++++++++++++++++++++++++
+	if req.Headers["Content-Type"] == "application/x-www-form-urlencoded" {
+		// this will have support for single nested layer
+		rawFormData := url.Values{}
+		fmt.Println(req.Body)
+		if reflect.TypeOf(req.Body).Kind() == reflect.Map {
+			for key, val := range req.Body.(map[string]interface{}) {
+				// Note: This structure only works if there is no nested values
+				// we should be iterating if type of value is map or list
+				value, ok := val.(string)
+				if !ok {
+					fmt.Println("[error] parsing body for [application/x-www-form-urlencoded]")
+				}
+				rawFormData.Add(key, value)
+			}
 		}
-	}
-	bodyReader := bytes.NewReader(_bytes)
-	httpReq, err := http.NewRequest(req.Method, req.URL, bodyReader)
-	if err != nil {
-		return nil, fmt.Errorf("error creating http request %s", err)
-	}
+		encodedFormData := rawFormData.Encode()
+		httpReq, err := http.NewRequest(req.Method, req.URL, strings.NewReader(encodedFormData))
+		if err != nil {
+			return nil, fmt.Errorf("error creating [application/x-www-form-urlencoded] request %s", err)
+		}
 
-	for key, value := range req.Headers {
-		httpReq.Header.Set(key, value)
-	}
+		for key, value := range req.Headers {
+			httpReq.Header.Set(key, value)
+		}
 
-	httpResp, err := client.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("error making http request %s", err)
+		httpResp, err := client.Do(httpReq)
+		if err != nil {
+			return nil, fmt.Errorf("error making [application/x-www-form-urlencoded] http request %s", err)
+		}
+		return httpResp, nil
+
+	} else {
+		// +++++++++++++++++++++++++++++++++++++++++++++
+		// json request flow
+		// +++++++++++++++++++++++++++++++++++++++++++++
+		var parsedBodyBytes []byte
+		var err error
+		if req.Body != nil {
+			parsedBodyBytes, err = json.Marshal(req.Body)
+			if err != nil {
+				return nil, fmt.Errorf("error parsing request body %s", err)
+			}
+		}
+		bodyReader := bytes.NewReader(parsedBodyBytes)
+		httpReq, err := http.NewRequest(req.Method, req.URL, bodyReader)
+		if err != nil {
+			return nil, fmt.Errorf("error creating http request %s", err)
+		}
+
+		for key, value := range req.Headers {
+			httpReq.Header.Set(key, value)
+		}
+
+		httpResp, err := client.Do(httpReq)
+		if err != nil {
+			return nil, fmt.Errorf("error making http request %s", err)
+		}
+		return httpResp, nil
 	}
-	return httpResp, nil
 }
