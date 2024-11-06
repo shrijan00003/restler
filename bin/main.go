@@ -65,7 +65,7 @@ var env map[string]string
 // global proxy url
 var gProxyUrl string
 
-const APP_VERSION = "v0.0.1-dev.7"
+const APP_VERSION = "v0.0.1-dev.8"
 
 var restlerPath string
 
