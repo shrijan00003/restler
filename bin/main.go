@@ -38,6 +38,7 @@ type Request struct {
 	Headers map[string]string `yaml:"Headers"`
 	Body    interface{}       `yaml:"Body"`
 	After   *After            `yaml:"After"`
+	Params  map[string]string `yaml:"Params"`
 }
 
 type After struct {
@@ -1033,6 +1034,23 @@ func processRequest(req *Request) (*http.Response, error) {
 			client = &http.Client{}
 		}
 	}
+
+	u, e := url.Parse(req.URL)
+	if e != nil {
+		return nil, fmt.Errorf("Not a valid url, error is %w", e)
+	}
+
+	// +++++++++++++++++++++++++++++++++++++++++++++
+	// support for Parasm for search params
+	// +++++++++++++++++++++++++++++++++++++++++++++
+	if req.Params != nil {
+		q := u.Query()
+		for key, val := range req.Params {
+			q.Set(key, val)
+		}
+		u.RawQuery = q.Encode()
+	}
+
 	// +++++++++++++++++++++++++++++++++++++++++++++
 	// support for application/x-www-form-urlencoded
 	// +++++++++++++++++++++++++++++++++++++++++++++
@@ -1052,7 +1070,7 @@ func processRequest(req *Request) (*http.Response, error) {
 			}
 		}
 		encodedFormData := rawFormData.Encode()
-		httpReq, err := http.NewRequest(req.Method, req.URL, strings.NewReader(encodedFormData))
+		httpReq, err := http.NewRequest(req.Method, u.String(), strings.NewReader(encodedFormData))
 		if err != nil {
 			return nil, fmt.Errorf("error creating [application/x-www-form-urlencoded] request %s", err)
 		}
@@ -1067,32 +1085,32 @@ func processRequest(req *Request) (*http.Response, error) {
 		}
 		return httpResp, nil
 
-	} else {
-		// +++++++++++++++++++++++++++++++++++++++++++++
-		// json request flow
-		// +++++++++++++++++++++++++++++++++++++++++++++
-		var parsedBodyBytes []byte
-		var err error
-		if req.Body != nil {
-			parsedBodyBytes, err = json.Marshal(req.Body)
-			if err != nil {
-				return nil, fmt.Errorf("error parsing request body %s", err)
-			}
-		}
-		bodyReader := bytes.NewReader(parsedBodyBytes)
-		httpReq, err := http.NewRequest(req.Method, req.URL, bodyReader)
-		if err != nil {
-			return nil, fmt.Errorf("error creating http request %s", err)
-		}
-
-		for key, value := range req.Headers {
-			httpReq.Header.Set(key, value)
-		}
-
-		httpResp, err := client.Do(httpReq)
-		if err != nil {
-			return nil, fmt.Errorf("error making http request %s", err)
-		}
-		return httpResp, nil
 	}
+	// +++++++++++++++++++++++++++++++++++++++++++++
+	// json request flow
+	// +++++++++++++++++++++++++++++++++++++++++++++
+	var parsedBodyBytes []byte
+	var err error
+	if req.Body != nil {
+		parsedBodyBytes, err = json.Marshal(req.Body)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing request body %s", err)
+		}
+	}
+	bodyReader := bytes.NewReader(parsedBodyBytes)
+	httpReq, err := http.NewRequest(req.Method, u.String(), bodyReader)
+	if err != nil {
+		return nil, fmt.Errorf("error creating http request %s", err)
+	}
+
+	for key, value := range req.Headers {
+		httpReq.Header.Set(key, value)
+	}
+
+	httpResp, err := client.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("error making http request %s", err)
+	}
+
+	return httpResp, nil
 }
