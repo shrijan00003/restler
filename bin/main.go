@@ -12,10 +12,12 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -46,7 +48,9 @@ type After struct {
 }
 
 type Config struct {
-	Env string `yaml:"Env"`
+	Env        string `yaml:"Env"`
+	envPath    string
+	configPath string
 }
 
 // global Config variable
@@ -66,7 +70,7 @@ var env map[string]string
 // global proxy url
 var gProxyUrl string
 
-const APP_VERSION = "v0.0.1-dev.8"
+const APP_VERSION = "v0.0.1-dev.9"
 
 var restlerPath string
 
@@ -139,6 +143,17 @@ func main() {
 				},
 			},
 			{
+				Name:    "run",
+				Aliases: []string{"r"},
+				Usage:   "Run request",
+				Flags:   commonCommandFlags,
+				Action: func(cCtx *cli.Context) error {
+					initConfigs(cCtx)
+					return runAction(cCtx)
+				},
+			},
+			// @depreciated Use run command restler run
+			{
 				Name:    "post",
 				Aliases: []string{"p"},
 				Usage:   "Run post request",
@@ -148,6 +163,7 @@ func main() {
 					return restAction(cCtx, POST, restlerPath)
 				},
 			},
+			// @depreciated Use run command restler run
 			{
 				Name:    "get",
 				Aliases: []string{"g"},
@@ -158,6 +174,7 @@ func main() {
 					return restAction(cCtx, GET, restlerPath)
 				},
 			},
+			// @depreciated Use run command restler run
 			{
 				Name:    "put",
 				Aliases: []string{"u"},
@@ -168,6 +185,7 @@ func main() {
 					return restAction(cCtx, PUT, restlerPath)
 				},
 			},
+			// @depreciated Use run command restler run
 			{
 				Name:    "delete",
 				Aliases: []string{"d"},
@@ -178,6 +196,7 @@ func main() {
 					return restAction(cCtx, DELETE, restlerPath)
 				},
 			},
+			// @depreciated Use run command restler run
 			{
 				Name:    "patch",
 				Aliases: []string{"m"},
@@ -377,6 +396,62 @@ func initialize(c *cli.Context) {
 	err = loadWithYaml(fmt.Sprintf("%s/env/%s.yaml", reqPath, config.Env), &env)
 	if err != nil {
 		fmt.Printf("[restler Error]: Failed to load environment file! Make sure you have at least default.yaml file in %s/env folder to use environment variables in request!\n", restlerPath)
+	}
+}
+
+func findFileRecursively(startPath string, fileName string) (string, error) {
+	// get the absolute path of the starting dir
+	currentPath, err := filepath.Abs(startPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	pwd, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current working dir: %w", err)
+	}
+	pwd = filepath.Clean(pwd)
+
+	for {
+		currentDir := filepath.Dir(currentPath)
+		filePath := filepath.Join(currentDir, fileName)
+		if _, err := os.Stat(filePath); err == nil {
+			return filePath, nil
+		}
+
+		if currentPath == pwd || currentPath == filepath.Dir(filePath) {
+			break
+		}
+
+		currentPath = filepath.Dir(filePath)
+	}
+
+	return "", fmt.Errorf("%s not found", fileName)
+}
+
+// initConfigs function is responsible for loading config and environments
+// we will merge configs and envs after this version but for now we should load both
+// recursively check for the config file, and its env folder
+func initConfigs(c *cli.Context) {
+	intializeProxy()
+	reqPath := c.Args().First()
+	configPath, err := findFileRecursively(reqPath, "config.yaml")
+	err = loadWithYaml(configPath, &config)
+
+	if err != nil {
+		fmt.Println("[restler log]:Failed to load config file, using default env, err:", err)
+		config.DefaultConfig()
+	} else {
+		config.configPath = configPath
+	}
+
+	// TODO: remove env folder
+	envPath := fmt.Sprintf("%s/env/%s.yaml", filepath.Dir(configPath), config.Env)
+	err = loadWithYaml(envPath, &env)
+	if err != nil {
+		fmt.Printf("[restler Error]: Failed to load environment file! Make sure you have at least default.yaml file in %s/env folder to use environment variables in request!\n", restlerPath)
+	} else {
+		config.envPath = envPath
 	}
 }
 
@@ -661,6 +736,52 @@ const (
 	HEAD    ActionName = "head"
 )
 
+func runAction(cCtx *cli.Context) error {
+	var reqPath = cCtx.Args().First()
+
+	if reqPath == "" {
+		log.Fatal("[Resterl Error]: Please provide request args like collection/request-name.yaml")
+	}
+
+	// TODO: env support
+
+	if _, err := os.Stat(reqPath); os.IsNotExist(err) {
+		log.Fatal("[Restler Error]: Request not found in path: ", reqPath)
+	}
+
+	pReq, err := parseRequest(reqPath)
+	if err != nil {
+		log.Fatal("[Restler Error]: Error processing your request, make sure you have valid format")
+	}
+
+	pRes, err := processRequest(pReq)
+	if err != nil {
+		log.Fatal("[Restler Error]: Error processing your request: ", err)
+	}
+
+	body, err := readBody(pRes)
+	if err != nil {
+		log.Fatal("[Restler error]: Error reading response body, Send PR :D", err)
+	}
+
+	responseBytes, err := prepareResponse(pReq, pRes, body)
+	if err != nil {
+		log.Fatal("[Restler Error]: We can't process your response, Fix and send PR :D", err)
+	}
+
+	// TODO: update env file if only it exists
+	updateEnvPostScript(cCtx, pReq, pRes, body)
+
+	outDir := filepath.Dir(reqPath)
+	baseName := filepath.Base(reqPath)
+	outName := strings.TrimSuffix(baseName, filepath.Ext(baseName))
+	resName := fmt.Sprintf(".%s.%s.%s.res.md", outName, strings.ToLower(pReq.Method), strings.Replace(time.Now().Format("20060102150405.000000"), ".", "", 1))
+	resFullPath := filepath.Join(outDir, resName)
+
+	os.WriteFile(resFullPath, responseBytes, 0644)
+	return nil
+}
+
 func restAction(cCtx *cli.Context, actionName ActionName, restlerPath string) error {
 	var req = cCtx.Args().First()
 	if req == "" {
@@ -823,6 +944,10 @@ func updateEnvPostScript(c *cli.Context, req *Request, res *http.Response, body 
 
 	_, reqPath := getReqNamePath(c.Args().First())
 	envPath := fmt.Sprintf("%s/env/%s.yaml", reqPath, config.Env)
+	// this will override for new API
+	if config.envPath != "" {
+		envPath = config.envPath
+	}
 	newEnvMap := convertMap(env)
 	mergeMaps(newEnvMap, convertMap(envBodyValueMap))
 	mergeMaps(newEnvMap, convertMap(envHeaderValueMap))
