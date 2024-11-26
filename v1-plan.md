@@ -26,7 +26,7 @@ Envs:
 3. Git question
 - How can we avoid to push the tokens and environments to the server??
 - if we will keep prod envs on the same config.yaml file then we might accidently push the environments to git
-- may be we can introduce RESTLER_CONFIG=prod that will load the config.prod.yaml file or expect that file
+- may be we can introduce RESTLER_ENV=prod that will load the config.prod.yaml file or expect that file
 - if RESTLER_CONFIG=something then config.something.yaml file will be loaded so that config.prod.yaml file can be ignored on the git.
 - it should support .env, .env.* file
 

@@ -12,10 +12,12 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -139,6 +141,17 @@ func main() {
 				},
 			},
 			{
+				Name:    "run",
+				Aliases: []string{"r"},
+				Usage:   "Run request",
+				Flags:   commonCommandFlags,
+				Action: func(cCtx *cli.Context) error {
+					initialize(cCtx)
+					return runAction(cCtx)
+				},
+			},
+			// @depreciated Use run command restler run
+			{
 				Name:    "post",
 				Aliases: []string{"p"},
 				Usage:   "Run post request",
@@ -148,6 +161,7 @@ func main() {
 					return restAction(cCtx, POST, restlerPath)
 				},
 			},
+			// @depreciated Use run command restler run
 			{
 				Name:    "get",
 				Aliases: []string{"g"},
@@ -158,6 +172,7 @@ func main() {
 					return restAction(cCtx, GET, restlerPath)
 				},
 			},
+			// @depreciated Use run command restler run
 			{
 				Name:    "put",
 				Aliases: []string{"u"},
@@ -168,6 +183,7 @@ func main() {
 					return restAction(cCtx, PUT, restlerPath)
 				},
 			},
+			// @depreciated Use run command restler run
 			{
 				Name:    "delete",
 				Aliases: []string{"d"},
@@ -178,6 +194,7 @@ func main() {
 					return restAction(cCtx, DELETE, restlerPath)
 				},
 			},
+			// @depreciated Use run command restler run
 			{
 				Name:    "patch",
 				Aliases: []string{"m"},
@@ -660,6 +677,51 @@ const (
 	OPTIONS ActionName = "options"
 	HEAD    ActionName = "head"
 )
+
+func runAction(cCtx *cli.Context) error {
+	var reqPath = cCtx.Args().First()
+
+	if reqPath == "" {
+		log.Fatal("[Resterl Error]: Please provide request args like collection/request-name.yaml")
+	}
+
+	// TODO: env support
+
+	if _, err := os.Stat(reqPath); os.IsNotExist(err) {
+		log.Fatal("[Restler Error]: Request not found in path: ", reqPath)
+	}
+
+	pReq, err := parseRequest(reqPath)
+	if err != nil {
+		log.Fatal("[Restler Error]: Error processing your request, make sure you have valid format")
+	}
+
+	pRes, err := processRequest(pReq)
+	if err != nil {
+		log.Fatal("[Restler Error]: Error processing your request: ", err)
+	}
+
+	body, err := readBody(pRes)
+	if err != nil {
+		log.Fatal("[Restler error]: Error reading response body, Send PR :D", err)
+	}
+
+	responseBytes, err := prepareResponse(pReq, pRes, body)
+	if err != nil {
+		log.Fatal("[Restler Error]: We can't process your response, Fix and send PR :D", err)
+	}
+
+	// TODO: check if this is working as expected
+	updateEnvPostScript(cCtx, pReq, pRes, body)
+	outDir := filepath.Dir(reqPath)
+	baseName := filepath.Base(reqPath)
+	outName := strings.TrimSuffix(baseName, filepath.Ext(baseName))
+	resName := fmt.Sprintf(".%s.%s.%s.res.md", outName, strings.ToLower(pReq.Method), strings.Replace(time.Now().Format("20060102150405.000000"), ".", "", 1))
+	resFullPath := filepath.Join(outDir, resName)
+
+	os.WriteFile(resFullPath, responseBytes, 0644)
+	return nil
+}
 
 func restAction(cCtx *cli.Context, actionName ActionName, restlerPath string) error {
 	var req = cCtx.Args().First()
