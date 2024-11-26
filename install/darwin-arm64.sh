@@ -2,7 +2,7 @@
 
 # Variables
 REPO="shrijan00003/restler"
-VERSION="v0.0.1-dev.8"
+VERSION="v0.0.1-dev.9"
 BINARY_NAME="restler"
 TAR_FILE="${BINARY_NAME}-${VERSION}-darwin-arm64.tar.gz"
 DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${TAR_FILE}"

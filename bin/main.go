@@ -48,7 +48,9 @@ type After struct {
 }
 
 type Config struct {
-	Env string `yaml:"Env"`
+	Env        string `yaml:"Env"`
+	envPath    string
+	configPath string
 }
 
 // global Config variable
@@ -68,7 +70,7 @@ var env map[string]string
 // global proxy url
 var gProxyUrl string
 
-const APP_VERSION = "v0.0.1-dev.8"
+const APP_VERSION = "v0.0.1-dev.9"
 
 var restlerPath string
 
@@ -146,7 +148,7 @@ func main() {
 				Usage:   "Run request",
 				Flags:   commonCommandFlags,
 				Action: func(cCtx *cli.Context) error {
-					initialize(cCtx)
+					initConfigs(cCtx)
 					return runAction(cCtx)
 				},
 			},
@@ -394,6 +396,62 @@ func initialize(c *cli.Context) {
 	err = loadWithYaml(fmt.Sprintf("%s/env/%s.yaml", reqPath, config.Env), &env)
 	if err != nil {
 		fmt.Printf("[restler Error]: Failed to load environment file! Make sure you have at least default.yaml file in %s/env folder to use environment variables in request!\n", restlerPath)
+	}
+}
+
+func findFileRecursively(startPath string, fileName string) (string, error) {
+	// get the absolute path of the starting dir
+	currentPath, err := filepath.Abs(startPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	pwd, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current working dir: %w", err)
+	}
+	pwd = filepath.Clean(pwd)
+
+	for {
+		currentDir := filepath.Dir(currentPath)
+		filePath := filepath.Join(currentDir, fileName)
+		if _, err := os.Stat(filePath); err == nil {
+			return filePath, nil
+		}
+
+		if currentPath == pwd || currentPath == filepath.Dir(filePath) {
+			break
+		}
+
+		currentPath = filepath.Dir(filePath)
+	}
+
+	return "", fmt.Errorf("%s not found", fileName)
+}
+
+// initConfigs function is responsible for loading config and environments
+// we will merge configs and envs after this version but for now we should load both
+// recursively check for the config file, and its env folder
+func initConfigs(c *cli.Context) {
+	intializeProxy()
+	reqPath := c.Args().First()
+	configPath, err := findFileRecursively(reqPath, "config.yaml")
+	err = loadWithYaml(configPath, &config)
+
+	if err != nil {
+		fmt.Println("[restler log]:Failed to load config file, using default env, err:", err)
+		config.DefaultConfig()
+	} else {
+		config.configPath = configPath
+	}
+
+	// TODO: remove env folder
+	envPath := fmt.Sprintf("%s/env/%s.yaml", filepath.Dir(configPath), config.Env)
+	err = loadWithYaml(envPath, &env)
+	if err != nil {
+		fmt.Printf("[restler Error]: Failed to load environment file! Make sure you have at least default.yaml file in %s/env folder to use environment variables in request!\n", restlerPath)
+	} else {
+		config.envPath = envPath
 	}
 }
 
@@ -711,8 +769,9 @@ func runAction(cCtx *cli.Context) error {
 		log.Fatal("[Restler Error]: We can't process your response, Fix and send PR :D", err)
 	}
 
-	// TODO: check if this is working as expected
+	// TODO: update env file if only it exists
 	updateEnvPostScript(cCtx, pReq, pRes, body)
+
 	outDir := filepath.Dir(reqPath)
 	baseName := filepath.Base(reqPath)
 	outName := strings.TrimSuffix(baseName, filepath.Ext(baseName))
@@ -885,6 +944,10 @@ func updateEnvPostScript(c *cli.Context, req *Request, res *http.Response, body 
 
 	_, reqPath := getReqNamePath(c.Args().First())
 	envPath := fmt.Sprintf("%s/env/%s.yaml", reqPath, config.Env)
+	// this will override for new API
+	if config.envPath != "" {
+		envPath = config.envPath
+	}
 	newEnvMap := convertMap(env)
 	mergeMaps(newEnvMap, convertMap(envBodyValueMap))
 	mergeMaps(newEnvMap, convertMap(envHeaderValueMap))
