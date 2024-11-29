@@ -22,6 +22,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/joho/godotenv"
+	mainEnv "github.com/shrijan00003/restler/core/env"
 
 	"github.com/urfave/cli/v2"
 	"gopkg.in/yaml.v3"
@@ -99,6 +100,14 @@ func main() {
 				Usage:   "Initialize restler project",
 				Action: func(cCtx *cli.Context) error {
 					return initRestlerProject()
+				},
+			},
+			{
+				Name:    "test",
+				Aliases: []string{"t"},
+				Usage:   "Test the restler project for different purposes",
+				Action: func(cCtx *cli.Context) error {
+					return initEnv()
 				},
 			},
 			{
@@ -429,10 +438,17 @@ func findFileRecursively(startPath string, fileName string) (string, error) {
 	return "", fmt.Errorf("%s not found", fileName)
 }
 
+func initEnv() error {
+	mainEnv.LoadEnv()
+	// parser.Parse()
+	return nil
+}
+
 // initConfigs function is responsible for loading config and environments
 // we will merge configs and envs after this version but for now we should load both
 // recursively check for the config file, and its env folder
 func initConfigs(c *cli.Context) {
+	mainEnv.LoadEnv()
 	intializeProxy()
 	reqPath := c.Args().First()
 	configPath, err := findFileRecursively(reqPath, "config.yaml")

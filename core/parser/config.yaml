@@ -1,0 +1,27 @@
+Name: Get Posts
+URL: ${API_URL}
+Method: GET
+
+Headers:
+  Accept: text/html, application/json
+  Authorization: Bearer ${TOKEN}
+
+Body:
+  Name: John Doe
+  Company: ${COMPANY}
+  Address:
+    Street: 123 Main St
+    City: Anytown
+    State: CA
+    Zip: 12345
+
+After:
+  Env:
+    TOKEN: Bearer ${TOKEN}
+    COMPANY: Company
+    Address:
+      Street: Street
+      City: City
+      State: State
+      Zip: Zip
+      country: ${COUNTRY}
