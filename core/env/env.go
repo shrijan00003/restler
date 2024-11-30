@@ -1,9 +1,11 @@
 package env
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/joho/godotenv"
 	"github.com/shrijan00003/restler/core/logger"
@@ -14,8 +16,8 @@ const RESTLER_ENV = "RESTLER_ENV"
 func Init() {
 	LoadDefaultEnv()
 
+	// env side effects (need to find another place for this)
 	logLevel := os.Getenv("RESTLER_LOG_LEVEL")
-
 	if logLevel == "DEBUG" {
 		logger.SetDebug()
 	}
@@ -91,4 +93,71 @@ func LoadDefaultEnv() {
 
 func GetEnv(key string) string {
 	return os.Getenv(key)
+}
+
+func UpdateEnv(path string) error {
+	dotEnvPath, err := findDotEnvFile()
+	if err != nil {
+		fmt.Println("[log]: env file .env or .env.local not found, creating .env file :")
+		if _, err := os.Create(".env"); err != nil {
+			fmt.Println("[error]: Error occurred while creating .env file: ", err)
+			return err
+		}
+		dotEnvPath = ".env"
+	}
+
+	return updateDotEnvFile(dotEnvPath, path)
+}
+
+func updateDotEnvFile(envPath, restlerPath string) error {
+	file, err := os.Open(envPath)
+	if err != nil {
+		fmt.Println("[error]: Error occurred while opening .env file: ", err)
+		return err
+	}
+	defer file.Close()
+
+	// read the file line by line
+	scanner := bufio.NewScanner(file)
+	var lines []string
+	var restlerPathFound bool
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "RESTLER_PATH") {
+			// update RESTLER_PATH in .env file
+			restlerPathFound = true
+			line = fmt.Sprintf("RESTLER_PATH=%s", restlerPath)
+		}
+		lines = append(lines, line)
+	}
+
+	if !restlerPathFound {
+		lines = append(lines, "RESTLER_PATH="+restlerPath)
+	}
+
+	if err := scanner.Err(); err != nil {
+		fmt.Printf("[error]: Error occurred while reading %s file: %s\n", envPath, err)
+		return err
+	}
+
+	err = os.WriteFile(envPath, []byte(strings.Join(lines, "\n")), 0644)
+	if err != nil {
+		fmt.Printf("[error]: Error occurred while updating %s file: %s\n", envPath, err)
+		return err
+	}
+	return nil
+}
+
+func findDotEnvFile() (string, error) {
+	dotEnvPath := ".env"
+	_, err := os.Stat(dotEnvPath)
+	if os.IsNotExist(err) {
+		dotEnvPath = ".env.local"
+		_, err := os.Stat(dotEnvPath)
+		if os.IsNotExist(err) {
+			return "", err
+		}
+	}
+
+	return dotEnvPath, nil
 }

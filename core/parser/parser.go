@@ -3,9 +3,7 @@ package parser
 import (
 	"fmt"
 	"os"
-	"strings"
 
-	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
 )
 
@@ -35,29 +33,4 @@ func Parse() {
 	fmt.Printf("Body: %v\n", config.Body)
 	fmt.Printf("After: %v\n", config.After)
 	fmt.Println(config.After)
-
-}
-
-func ParseViper() {
-	viper.SetConfigFile("./core/parser/config.yaml")
-	viper.AutomaticEnv()
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-
-	err := viper.ReadInConfig()
-	if err != nil {
-		panic(err)
-	}
-
-	headers := viper.GetStringMap("Headers")
-	body := viper.GetStringMap("Body")
-	after := viper.GetStringMap("After")
-
-	fmt.Printf("Headers: %v\n", headers)
-	fmt.Printf("Body: %v\n", body)
-	fmt.Printf("After: %v\n", after)
-
-	authorization := viper.GetString("Headers.Authorization")
-	fmt.Printf("Authorization: %v\n", authorization)
-
-	fmt.Println("URL: ", viper.GetString("URL"))
 }
