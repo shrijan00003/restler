@@ -2,15 +2,15 @@ package svc
 
 import "os"
 
-// Load proxy from env supports both HTTPS_PROXY and HTTP_PROXY
-var gProxyUrl string
-
-func IntializeProxy() {
-	gProxyUrl = os.Getenv("HTTPS_PROXY")
+// TODO: Add support for NO_PROXY
+func GetProxyURL() string {
+	gProxyUrl := os.Getenv("HTTPS_PROXY")
 	if gProxyUrl == "" {
 		gProxyUrl = os.Getenv("HTTP_PROXY")
 		if gProxyUrl == "" {
 			gProxyUrl = ""
 		}
 	}
+
+	return gProxyUrl
 }

@@ -12,6 +12,10 @@ func Init() {
 	logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: &logLevel}))
 }
 
+func Terminate() {
+	logger = nil
+}
+
 func SetDebug() {
 	logLevel = slog.LevelDebug
 }

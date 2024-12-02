@@ -16,7 +16,7 @@ const RESTLER_ENV = "RESTLER_ENV"
 func Init() {
 	LoadDefaultEnv()
 
-	// env side effects (need to find another place for this)
+	// TODO: env side effects (need to find another place for this)
 	logLevel := os.Getenv("RESTLER_LOG_LEVEL")
 	if logLevel == "DEBUG" {
 		logger.SetDebug()
@@ -47,8 +47,6 @@ func GetCurrentEnvPath() string {
 }
 
 func LoadRestlerEnv() {
-	// Init logger in main file
-	logger.Init()
 	Init()
 
 	restlerEnvPath := GetCurrentEnvPath()
