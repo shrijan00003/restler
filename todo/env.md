@@ -3,8 +3,8 @@ By default, restler will load `.env` file or `.env.local` file on the `cwd`, if 
 - if config.yaml file is on cwd and it has Env filed, it will be used to load the env file.
 
 ## todo DEC 15 2024
-- [ ] Load .env.local or .env file on the cwd
 - [ ] Add support for EnvPath on request file flag (get from anywhere - relative or absolute)
+- [ ] Load .env.local or .env file on the cwd
 - [ ] Add support for envpath flag
 - [ ] Add support for EnvPath on After Hook. (set anywhere)
 - [ ] Add support for config.yaml file (optional)
