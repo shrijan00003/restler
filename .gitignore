@@ -7,6 +7,7 @@
 
 
 restler
+.restler
 # Ignore response file
 **/.*.res.md
 
