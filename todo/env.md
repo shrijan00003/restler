@@ -1,5 +1,41 @@
 # Environment Support
-support for .env.* files
+By default, restler will load `.env` file or `.env.local` file on the `cwd`, if both present `.env.local` will be priorized over `.env`.
+- if config.yaml file is on cwd and it has Env filed, it will be used to load the env file.
+
+## todo DEC 15 2024
+- [ ] Load .env.local or .env file on the cwd
+- [ ] Add support for EnvPath on request file flag (get from anywhere - relative or absolute)
+- [ ] Add support for envpath flag
+- [ ] Add support for EnvPath on After Hook. (set anywhere)
+- [ ] Add support for config.yaml file (optional)
+
+### Suppport for EnvPath on request file ( get from anywhere - relative or absolute)
+- If Envpath is present on the request file, it should load only that env file.
+- If EnvPath is not present then it should look for .env.local or .env file on the cwd.
+- If not found It should ignore the error and continue, but if request file have env used on the request, it should throw error.
+
+## Questions
+
+### How can i choose what env file to load?
+1. config.yaml (search for config.yaml file)
+2. env flag (--env=local or -e local) (search for .env.local file)
+3. envpath flag (--envpath=.env.local or -e .env.local) (search for .env.local file)
+
+### What if i need to run nested collections from root? which env file should be loaded?
+1. If config.yaml is present:
+- `Env: local` --> load `.env.local` file
+- `EnvPath: .env.local` --> load `.env.local` file
+- `EnvPath: ../something/.something.env` --> load `../something/.something.env` file
+
+**Note:** `EnvPath` will be prioritized over `Env` if both are present.
+
+In this way we can speficy what env file to load and where to load it from.
+
+2. Request file can also have `EnvPath` and `Env` fields
+
+#### What can be issue we need to look into?
+  1. Can we load env file above the current folder?
+
 
 ## How to Access?
 ```yaml
@@ -17,92 +53,7 @@ After:
 ```
 
 # Config Support
-support for config.yaml file???
-Do we need config.yaml? what is difference between env and config?
-
-
-sample config.yaml
-
-```yaml
-API_URL: https://api.example.com
-X-API-KEY: ${API_KEY}
-
-```
-
-## How to Access?
-In request file like get-token.yaml
-Ref: https://stackoverflow.com/questions/69657289/use-environment-variables-in-yaml-file
-
-```yaml
-URL: {{.API_URL}}
-Headers:
-  X-API-KEY: {{.X-API-KEY}}
-```
-
-## How to Set?
-
-
-## Different scenarios for using env and config?
-
-
-## How can user can use different envrionment files? if they have to use .env.dev or .env.prod or .env.test?
-Option 1: Do not support .env.* files and only support .env file
-Option 2: Use one more file like config.yaml and defined which env file to use like env=dev
-Oprion 3: Inreoduce set command to set the env file to use like `restler set env dev` and `restler set env prod`
-
-# How does set command should work?
-- command `set env dev | test | prod`
-  -- create .restler/config.yaml file
-  sample config.yaml
-
-  ```yaml
-  env: dev | test | prod
-  ```
-- if we want to support config.yaml file, the immidiate config.yaml file will be used to determine the env and other configurations.
-- Do we want to add a support for config vars?
-- But we can't set values on the config.yaml file, as it will/can be pushed to git that is not expected on most of the cases.
-
-## So how after should work?
-```yaml
-After:
-  Env:
-    API_URL: https://api.example.com # will be written to current env file
-  Config:
-    API_KEY: 1234567890 # will be written to .restler/config.yaml
-```
-
-### If we set .restler/config.yaml file what will be our precedence?
-- .restler should be considered as the current cache folder
-- it should be loaded
-
-flow:
-1. call ser1 -> get token
-2. use that token -> api 2
-3. use some data from there -> use in api 3
-
-
-- There should not be more than one config file for sure
-.env or .env.local
-RESETLER_ENV=prod
-
-.restler
-  - .env
-  - .env.dev
-  - .env.prod
-  - .env.test
-  - .env.<whatever>
-  - cache
-    -- cache-structure-1
-
-
-
-## After scripts are crazy?
-- simple use case
-
-- Since we can't provide the ts or js event on that
-After:
-  script:
-    - language: js/ts
-      action: scripts/functionName  ->  (api) -> ({req, res, env})
-    - language: go
-      action: go-scripts/funcName -> (api *r.Api) ->
+- config.yaml can be used to set the differnet env files.
+- config.yaml can be also used to specify the env file path to load.
+- TODO: We can havee more public config options like API_URL, API_KEY which can be shared over git.
+- for now we can use .env.example file to share env variables over git that can be copy and renamed to .env file as secret.
