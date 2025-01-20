@@ -39,7 +39,7 @@ func (c *Config) Terminate() {
 	c = nil
 }
 
-const APP_VERSION = "v0.0.1-dev.9"
+const APP_VERSION = "v0.0.2-dev.0"
 
 var restlerPath string
 var a *app.App
