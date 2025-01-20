@@ -1,5 +1,5 @@
 Name: Update Post
-URL: "{{API_URL}}/1"
+URL: "${API_URL}/1"
 Method: PATCH
 
 Headers:
