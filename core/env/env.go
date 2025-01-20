@@ -8,13 +8,17 @@ import (
 	"strings"
 
 	"github.com/joho/godotenv"
+	"github.com/shrijan00003/restler/core/app"
 	"github.com/shrijan00003/restler/core/logger"
+	"github.com/shrijan00003/restler/core/utils"
 )
 
-const RESTLER_ENV = "RESTLER_ENV"
+func Terminate() {
+	// unset environment variables if possible
+}
 
-func Init() {
-	LoadDefaultEnv()
+func LoadEnv(config *app.Config) {
+	load(config)
 
 	// TODO: env side effects (need to find another place for this)
 	logLevel := os.Getenv("RESTLER_LOG_LEVEL")
@@ -23,54 +27,10 @@ func Init() {
 	}
 }
 
-func Terminate() {
-	// unset environment variables if possible
-}
-
-func GetCurrentEnvPath() string {
-	currentEnv := os.Getenv(RESTLER_ENV)
-	restlerEnvDir, err := os.Getwd()
-
-	if err != nil {
-		logger.Debug("[restler error]", "error getting current directory", err)
-	}
-	restlerEnvPath := restlerEnvDir + "/.restler/.env"
-	if currentEnv != "" {
-		restlerEnvPath = restlerEnvDir + "/.restler/.env." + currentEnv
-	}
-
-	if _, err := os.Stat(restlerEnvPath); os.IsNotExist(err) {
-		restlerEnvPath = restlerEnvDir + ".env"
-	}
-
-	return restlerEnvPath
-}
-
-func LoadRestlerEnv() {
-	Init()
-
-	restlerEnvPath := GetCurrentEnvPath()
-	err := godotenv.Overload(restlerEnvPath)
-	if err != nil {
-		logger.Debug("[restler error]: env file can not be loaded", "[error]", err)
-	}
-
-}
-
-func LoadEnv() {
-	LoadRestlerEnv()
-	apitoken := os.Getenv("API_KEY")
-	if apitoken != "" {
-		logger.Info("[restler info]: API_KEY is set " + apitoken)
-	} else {
-		logger.Info("[restler info]: API_KEY is not set")
-	}
-}
-
 // LoadDefaultEnv function will load env files and set env variables
 // May be we should be limited to .env and .env.local to make it simpler and faster.
-func LoadDefaultEnv() {
-	envFilePatterns := []string{".env.local", ".env", "~/.env.local", "~/.env"}
+func load(config *app.Config) {
+	envFilePatterns := []string{config.EnvPath, filepath.Join(utils.Pwd(), ".env."+config.Env), ".env.local", ".env", "~/.env.local", "~/.env"}
 	var envFiles []string
 
 	for _, pattern := range envFilePatterns {
@@ -78,7 +38,6 @@ func LoadDefaultEnv() {
 		if err != nil {
 			fmt.Println("[Restler Log]: Error loading .env file: ", err)
 		}
-		// TODO: Do we need to check if the file exists?
 		envFiles = append(envFiles, matchedFiles...)
 	}
 
@@ -87,6 +46,49 @@ func LoadDefaultEnv() {
 		fmt.Println("[restler info]: Error loading .env file: ", err)
 	}
 
+}
+
+func GetCurrentEnvPath(a *app.App) string {
+	if a.Config.EnvPath != "" || a.Config.Env != "" {
+		if a.Config.EnvPath != "" {
+			return a.Config.EnvPath
+		}
+		return filepath.Join(utils.Pwd(), ".env."+a.Config.Env)
+	}
+
+	if _, err := os.Stat(".env.local"); err == nil {
+		return ".env.local"
+	}
+
+	if _, err := os.Stat(".env"); err == nil {
+		return ".env"
+	}
+
+	return ""
+}
+
+// LoadEnvFileByName function will load env file by name
+// dev will load .env.dev file from the current directory
+func LoadEnvFileByName(envName string) error {
+	envPath := filepath.Join(utils.Pwd(), ".env."+envName)
+	if _, err := os.Stat(envPath); os.IsNotExist(err) {
+		logger.Debug("[restler error]: env file does not exist", "[error]", err)
+		return err
+	}
+
+	return OverLoadEnv(envPath)
+}
+
+func OverLoadEnv(envPath string) error {
+	if _, err := os.Stat(envPath); os.IsNotExist(err) {
+		logger.Debug("[restler error]: env file does not exist", "[error]", err)
+		return err
+	}
+	err := godotenv.Overload(envPath)
+	if err != nil {
+		logger.Debug("[restler error]: env file can not be loaded", "[error]", err)
+	}
+	return nil
 }
 
 func GetEnv(key string) string {
@@ -105,6 +107,50 @@ func UpdateEnv(path string) error {
 	}
 
 	return updateDotEnvFile(dotEnvPath, path)
+}
+
+func UpdateEnvFile(a *app.App, values map[string]interface{}) error {
+	envPath := GetCurrentEnvPath(a)
+	if envPath == "" {
+		fmt.Println("[error]: Env file path not found")
+		return fmt.Errorf("env file path not found")
+	}
+
+	file, err := os.Open(envPath)
+	if err != nil {
+		fmt.Println("[error]: Error occurred while opening .env file: ", err)
+		return err
+	}
+	defer file.Close()
+
+	// read the file line by line
+	scanner := bufio.NewScanner(file)
+	var lines []string
+	var updatedEnvMap = make(map[string]string)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		for key, value := range values {
+			if strings.HasPrefix(line, key) {
+				line = fmt.Sprintf("%s=%s", key, value)
+				updatedEnvMap[key] = value.(string)
+			}
+		}
+		lines = append(lines, line)
+	}
+
+	for key, value := range values {
+		if _, ok := updatedEnvMap[key]; !ok {
+			lines = append(lines, fmt.Sprintf("%s=%s", key, value))
+		}
+	}
+
+	err = os.WriteFile(envPath, []byte(strings.Join(lines, "\n")), 0644)
+	if err != nil {
+		fmt.Printf("[error]: Error occurred while updating %s file: %s\n", envPath, err)
+		return err
+	}
+	return nil
 }
 
 func updateDotEnvFile(envPath, restlerPath string) error {

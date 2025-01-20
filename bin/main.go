@@ -17,6 +17,7 @@ import (
 	"github.com/shrijan00003/restler/core/env"
 	"github.com/shrijan00003/restler/core/logger"
 	"github.com/shrijan00003/restler/core/utils"
+	"gopkg.in/yaml.v3"
 
 	"github.com/urfave/cli/v2"
 )
@@ -44,6 +45,36 @@ var restlerPath string
 var a *app.App
 
 func main() {
+	defer func() {
+		a.Terminate()
+	}()
+	run()
+}
+
+// -------------------------
+
+// -------------------------
+// initialize restler project
+// -------------------------
+func initialize() {
+	defer func() {
+		env.Terminate()
+		logger.Terminate()
+	}()
+
+	logger.Init()
+
+	// load config.yaml file in the root of restler project
+	// TODO: support config flag to load config file from request
+	pConfig, _ := svc.LoadConfig()
+
+	// Load default env with .env and .env.local
+	env.LoadEnv(pConfig)
+	proxyURL := svc.GetProxyURL()
+	a = app.NewApp(proxyURL, APP_VERSION, pConfig)
+}
+
+func run() {
 	initialize()
 	app := &cli.App{
 		Name:    "Restler Application",
@@ -64,23 +95,6 @@ func main() {
 	if err := app.Run(os.Args); err != nil {
 		log.Fatal(err)
 	}
-
-}
-
-// -------------------------
-
-// -------------------------
-// initialize restler project
-// -------------------------
-func initialize() {
-	defer func() {
-		env.Terminate()
-		logger.Terminate()
-	}()
-	proxyURL := svc.GetProxyURL()
-	logger.Init()
-	env.LoadEnv()
-	a = app.NewApp(proxyURL, APP_VERSION)
 }
 
 type ActionName string
@@ -108,23 +122,40 @@ func runAction(cCtx *cli.Context) error {
 
 	pReq, err := svc.ParseRequest(reqPath)
 	if err != nil {
-		logger.Debug("error processign request:", err)
-		log.Fatal("[Restler Error]: Error processing your request, make sure you have valid format")
+		logger.Debug("error processing request:", err)
+		log.Fatal("[restler Error]: Error processing your request, make sure you have valid format")
 	}
+
+	// load Env or EnvPath for request if provided
+	// .env or .env.local will be loaded by default.
+	// this have no effect as env is already loaded on ParseRequest
+	// if pReq.EnvPath != "" || pReq.Env != "" {
+	// 	if pReq.EnvPath != "" {
+	// 		err := env.OverLoadEnv(pReq.EnvPath)
+	// 		if err != nil {
+	// 			log.Fatal("[restler error] |: Error loading env file: ", err)
+	// 		}
+	// 	} else {
+	// 		err := env.LoadEnvFileByName(pReq.Env)
+	// 		if err != nil {
+	// 			log.Fatal("[restler error]: Error loading env file: ", err)
+	// 		}
+	// 	}
+	// }
 
 	pRes, err := svc.ProcessRequest(pReq, a)
 	if err != nil {
-		log.Fatal("[Restler Error]: Error processing your request: ", err)
+		log.Fatal("[restler Error]: Error processing your request: ", err)
 	}
 
 	body, err := utils.ReadBody(pRes)
 	if err != nil {
-		log.Fatal("[Restler error]: Error reading response body, Send PR :D", err)
+		log.Fatal("[restler error]: Error reading response body, Send PR :D", err)
 	}
 
 	responseBytes, err := prepareResponse(pReq, pRes, body)
 	if err != nil {
-		log.Fatal("[Restler Error]: We can't process your response, Fix and send PR :D", err)
+		log.Fatal("[restler Error]: We can't process your response, Fix and send PR :D", err)
 	}
 
 	// TODO: update env file if only it exists
@@ -189,17 +220,22 @@ func updateEnvPostScript(req *svc.Request, res *http.Response, body []byte) {
 		}
 	}
 
-	envPath := env.GetCurrentEnvPath()
+	// TODO: Verify if this works
 	newEnvMap := make(map[string]interface{}, len(envBodyValueMap)+len(envHeaderValueMap))
 	utils.MergeMaps(newEnvMap, utils.ConvertMap(envBodyValueMap))
 	utils.MergeMaps(newEnvMap, utils.ConvertMap(envHeaderValueMap))
+	err := env.UpdateEnvFile(a, newEnvMap)
 
-	// TODO: read the env file or get the current env values
-	// and update with new env values.
-	err := utils.WriteYAMLFile(envPath, newEnvMap)
 	if err != nil {
-		fmt.Println("[Restler Log]: Failed to write env file: ", err)
+		fmt.Println("[restler Log]: Failed to write env file: ", err)
 	}
+}
+
+func getRequestBytes(req *svc.Request) ([]byte, error) {
+	if req.Body != nil {
+		return yaml.Marshal(req)
+	}
+	return nil, nil
 }
 
 func prepareResponse(req *svc.Request, res *http.Response, body []byte) ([]byte, error) {
@@ -221,6 +257,11 @@ func prepareResponse(req *svc.Request, res *http.Response, body []byte) ([]byte,
 	buffer.WriteString("\n\n")
 	buffer.WriteString("## Original Request \n")
 	buffer.WriteString(fmt.Sprintf("Method: %s, URL: %s\n", res.Request.Method, res.Request.URL))
+	// ignoring errors here
+	requestBytes, _ := getRequestBytes(req)
+	buffer.WriteString("\n```yaml\n")
+	buffer.Write(requestBytes)
+	buffer.WriteString("\n```")
 	return buffer.Bytes(), nil
 }
 

@@ -4,6 +4,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -142,4 +143,12 @@ func ReadFile(path string) ([]byte, error) {
 	}
 
 	return rawContent, nil
+}
+
+func Pwd() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		log.Fatal("Error getting current directory", err)
+	}
+	return dir
 }

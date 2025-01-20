@@ -34,10 +34,10 @@ func ParseRequest(reqPath string) (*Request, error) {
 		return nil, err
 	}
 
-	replraced := os.ExpandEnv(string(rawReq))
+	replaced := os.ExpandEnv(string(rawReq))
 	req := &Request{}
 
-	err = yaml.Unmarshal([]byte(replraced), req)
+	err = yaml.Unmarshal([]byte(replaced), req)
 	if err != nil {
 		return nil, err
 	}

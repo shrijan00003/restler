@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"log"
 	"log/slog"
 	"os"
 )
@@ -34,4 +35,8 @@ func Error(msg string, args ...any) {
 
 func Warn(msg string, args ...any) {
 	logger.Warn(msg, args...)
+}
+
+func Fatal(msg string) {
+	log.Fatal(msg)
 }
