@@ -1,5 +1,5 @@
 Name: Create Post
-URL: "{{API_URL}}"
+URL: "${API_URL}"
 Method: POST
 
 Headers:
