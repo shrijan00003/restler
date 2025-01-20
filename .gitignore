@@ -7,9 +7,13 @@
 
 
 restler
+.restler
 # Ignore response file
 **/.*.res.md
 
 # Ignore .env file
 .env
 .env.local
+
+# config file created for testing config.yaml from root
+config.yaml
