@@ -1,14 +1,17 @@
 package app
 
+import "time"
+
 type Config struct {
 	Env     string `yaml:"Env"`
 	EnvPath string `yaml:"EnvPath"`
 }
 
 type App struct {
-	ProxyUrl string
-	Version  string
-	Config   *Config
+	ProxyUrl    string
+	Version     string
+	Config      *Config
+	RequestTime time.Duration
 }
 
 func NewApp(proxyUrl string, version string, config *Config) *App {

@@ -9,6 +9,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/shrijan00003/restler/core/app"
 	"gopkg.in/yaml.v3"
@@ -90,7 +91,7 @@ func ProcessRequest(req *Request, app *app.App) (*http.Response, error) {
 	}
 
 	// +++++++++++++++++++++++++++++++++++++++++++++
-	// support for Parasm for search params
+	// support for Params for search params
 	// +++++++++++++++++++++++++++++++++++++++++++++
 	if req.Params != nil {
 		q := u.Query()
@@ -151,7 +152,7 @@ func ProcessRequest(req *Request, app *app.App) (*http.Response, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error creating http request %s", err)
 	}
-
+	startTime := time.Now()
 	for key, value := range req.Headers {
 		httpReq.Header.Set(key, value)
 	}
@@ -160,6 +161,9 @@ func ProcessRequest(req *Request, app *app.App) (*http.Response, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error making http request %s", err)
 	}
+
+	endTime := time.Now()
+	app.RequestTime = endTime.Sub(startTime)
 
 	return httpResp, nil
 }

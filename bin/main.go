@@ -126,23 +126,6 @@ func runAction(cCtx *cli.Context) error {
 		log.Fatal("[restler Error]: Error processing your request, make sure you have valid format")
 	}
 
-	// load Env or EnvPath for request if provided
-	// .env or .env.local will be loaded by default.
-	// this have no effect as env is already loaded on ParseRequest
-	// if pReq.EnvPath != "" || pReq.Env != "" {
-	// 	if pReq.EnvPath != "" {
-	// 		err := env.OverLoadEnv(pReq.EnvPath)
-	// 		if err != nil {
-	// 			log.Fatal("[restler error] |: Error loading env file: ", err)
-	// 		}
-	// 	} else {
-	// 		err := env.LoadEnvFileByName(pReq.Env)
-	// 		if err != nil {
-	// 			log.Fatal("[restler error]: Error loading env file: ", err)
-	// 		}
-	// 	}
-	// }
-
 	pRes, err := svc.ProcessRequest(pReq, a)
 	if err != nil {
 		log.Fatal("[restler Error]: Error processing your request: ", err)
@@ -164,8 +147,12 @@ func runAction(cCtx *cli.Context) error {
 	outDir := filepath.Dir(reqPath)
 	baseName := filepath.Base(reqPath)
 	outName := strings.TrimSuffix(baseName, filepath.Ext(baseName))
+	newDir := filepath.Join(outDir, ".res."+outName)
+	if _, err := os.Stat(newDir); os.IsNotExist(err) {
+		os.Mkdir(newDir, 0755)
+	}
 	resName := fmt.Sprintf(".%s.%s.%s.res.md", outName, strings.ToLower(pReq.Method), strings.Replace(time.Now().Format("20060102150405.000000"), ".", "", 1))
-	resFullPath := filepath.Join(outDir, resName)
+	resFullPath := filepath.Join(newDir, resName)
 
 	os.WriteFile(resFullPath, responseBytes, 0644)
 	return nil
@@ -244,7 +231,9 @@ func prepareResponse(req *svc.Request, res *http.Response, body []byte) ([]byte,
 	buffer.WriteString(fmt.Sprintf("# Response For: %s \n", req.Name))
 	buffer.WriteString(fmt.Sprintf("Status Code: %d, Status: %s\n", res.StatusCode, res.Status))
 	buffer.WriteString("\n\n")
-	buffer.WriteString("## Response Header: \n")
+	buffer.WriteString("## Request Time\n")
+	buffer.WriteString(a.RequestTime.String())
+	buffer.WriteString("\n\n## Response Header: \n")
 
 	for key, value := range res.Header {
 		buffer.WriteString(fmt.Sprintf("%s: %s\n", key, value))
